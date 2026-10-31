@@ -87,6 +87,7 @@ add_library(nyxmap_engine STATIC
   src/engine/OscCodec.cpp
   src/engine/SequenceFeedback.cpp
   src/engine/Zeroconf.cpp
+  src/engine/StoredContent.cpp
   src/engine/Snapshots.cpp
   src/engine/Sequencer.cpp
   src/engine/Publishing.cpp
@@ -588,6 +589,10 @@ if(NYXMAP_TESTS)
   # CTest: each targeted area in a process of its own (a new engine).
   # Test media first: sh test/make_media.sh
   enable_testing()
+  add_executable(nyxmap_show_editing_test test/show_editing.cpp)
+  target_link_libraries(nyxmap_show_editing_test PRIVATE nyxmap_engine)
+  add_test(NAME show_editing COMMAND nyxmap_show_editing_test)
+  set_tests_properties(show_editing PROPERTIES TIMEOUT 60)
   add_executable(nyxmap_vision_analysis_test test/vision_analysis.cpp)
   target_link_libraries(nyxmap_vision_analysis_test PRIVATE nyxmap_engine)
   add_test(NAME vision_analysis COMMAND nyxmap_vision_analysis_test)
@@ -803,6 +808,12 @@ if(NYXMAP_TESTS)
   target_link_libraries(nyxmap_fixture_ui_test PRIVATE nyxmap_engine Qt6::Widgets Qt6::OpenGLWidgets)
   add_test(NAME fixture_ui COMMAND nyxmap_fixture_ui_test)
   set_tests_properties(fixture_ui PROPERTIES TIMEOUT 60)
+  add_executable(nyxmap_show_editing_ui_test test/show_editing_ui.cpp src/ui/SnapshotPanel.cpp src/ui/PresetEditor.cpp
+                 src/ui/SequencePanel.cpp src/ui/TimelineActivity.cpp src/ui/Commands.cpp src/ui/Widgets.cpp src/ui/ColorPicker.cpp)
+  target_include_directories(nyxmap_show_editing_ui_test PRIVATE src/ui)
+  target_link_libraries(nyxmap_show_editing_ui_test PRIVATE nyxmap_engine Qt6::Widgets)
+  add_test(NAME show_editing_ui COMMAND nyxmap_show_editing_ui_test)
+  set_tests_properties(show_editing_ui PROPERTIES TIMEOUT 60)
   add_executable(nyxmap_recall_delay_ui_test test/recall_delay_ui.cpp src/ui/SnapshotPanel.cpp src/ui/PresetEditor.cpp
                  src/ui/SequencePanel.cpp src/ui/TimelineActivity.cpp src/ui/Commands.cpp src/ui/Widgets.cpp src/ui/ColorPicker.cpp)
   target_include_directories(nyxmap_recall_delay_ui_test PRIVATE src/ui)

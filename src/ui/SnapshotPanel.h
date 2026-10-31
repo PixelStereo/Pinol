@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "Engine.h"
+#include "StoredContent.h"
 
 class QUndoStack;
 class QLabel;
@@ -61,6 +62,13 @@ signals:
     void recalled(); // the layers changed
 
 private:
+    void setupContentEditing();
+    std::vector<StoredContent::Selection> snapshotSelection() const;
+    std::vector<StoredContent::PresetSelection> presetSelection() const;
+    void copyContents(bool preset, bool cut = false);
+    void pasteContents(bool preset);
+    void deleteContents(bool preset);
+    void duplicateSelected(bool preset);
     void store();
     void updateSnapshot(int i); // stores the current state into it (layers left out stay out, times are kept)
     void removeSnapshot(int i);

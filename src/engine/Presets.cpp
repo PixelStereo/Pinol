@@ -166,6 +166,12 @@ Engine::PresetValue Engine::presetValue(quint64 layer, const QString &path) cons
     v.layer = layer;
     v.path = path;
     v.value = parameterValue(layer, path);
+    if (layer && path == "enable") {
+        Lock lock(&m_mutex);
+        const int index = indexOfId(layer);
+        if (index >= 0)
+            v.value = m_layers[size_t(index)]->enabled;
+    }
     return v;
 }
 

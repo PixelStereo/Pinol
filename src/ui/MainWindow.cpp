@@ -295,7 +295,7 @@ MainWindow::MainWindow(Engine *engine, QWidget *parent) : QMainWindow(parent), m
 
     // --- Bottom: sequences beside a shared snapshot/preset/timeline workspace
     m_snapshots = new SnapshotPanel(m_engine, m_undo);
-    m_seqWindow = new SequenceWindow(m_engine, this);
+    m_seqWindow = new SequenceWindow(m_engine, this, m_undo);
     m_seqWindow->setWindowFlags(Qt::Widget);
     m_timelineWindow = new TimelineWindow(m_engine, m_undo, this);
     m_timelineWindow->setWindowFlags(Qt::Widget);

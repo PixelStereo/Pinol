@@ -149,7 +149,9 @@ std::vector<osc::Message> SequenceFeedback::stateFor(Engine *engine, bool modifi
         Sequencer::Step st;
         if (valid) st = s.steps[size_t(k)];
         QString name;
-        if (valid && st.sequence) {
+        if (valid && !st.actions.empty()) {
+            name = QStringLiteral("Group · %1 actions").arg(st.actions.size());
+        } else if (valid && st.sequence) {
             const int index = sq.indexOfSequence(st.sequence);
             name = index >= 0 ? QStringLiteral("Sequence · %1").arg(sq.sequence(index).name) : QStringLiteral("(sequence gone)");
         } else if (valid && st.preset) {

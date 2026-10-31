@@ -45,13 +45,17 @@ QJsonObject catalog(Engine *e)
         const auto value = sq.sequence(k);
         auto entry = item(sq.sequenceId(k), k, value.name);
         entry["loop"] = value.loop;
+        entry["edit_mode"] = value.editMode;
         QJsonArray cues;
         for (size_t n = 0; n < value.steps.size(); ++n) {
             const auto &step = value.steps[n];
             QString kind = "empty", targetName;
             quint64 target = 0;
             int index = -1;
-            if (step.sequence) {
+            if (!step.actions.empty()) {
+                kind = "group";
+                targetName = QStringLiteral("%1 actions").arg(step.actions.size());
+            } else if (step.sequence) {
                 kind = "sequence"; target = step.sequence; index = sq.indexOfSequence(target);
                 if (index >= 0) targetName = sq.sequence(index).name;
             } else if (step.preset) {
@@ -65,6 +69,12 @@ QJsonObject catalog(Engine *e)
                 if (index >= 0) targetName = e->snapshot(index).name;
             }
             auto cue = item(step.runtimeId, int(n), targetName);
+            if (!step.actions.empty()) {
+                QJsonArray actions;
+                for (const auto &action : step.actions)
+                    actions.append(Sequencer::stepToJson(action));
+                cue["actions"] = actions;
+            }
             cue["text"] = step.text; cue["description"] = step.description;
             cue["target_type"] = kind; cue["target_id"] = idText(target); cue["missing"] = target && index < 0;
             cue["prewait"] = step.preWait; cue["postwait"] = step.postWait;

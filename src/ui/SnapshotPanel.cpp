@@ -4,12 +4,13 @@
 #include "Engine.h"
 #include "Widgets.h"
 
+#include <QApplication>
 #include <QButtonGroup>
 #include <QCheckBox>
+#include <QClipboard>
 #include <QComboBox>
 #include <QDoubleSpinBox>
 #include <QDropEvent>
-#include <QTreeWidgetItemIterator>
 #include <QFileInfo>
 #include <QHBoxLayout>
 #include <QHeaderView>
@@ -30,6 +31,7 @@
 #include <QTimer>
 #include <QToolButton>
 #include <QTreeWidget>
+#include <QTreeWidgetItemIterator>
 #include <QUndoStack>
 #include <QVBoxLayout>
 #include <cmath>
@@ -38,8 +40,16 @@
 static const QSize kThumb(160, 90);
 
 // Roles of the trees
-enum { IdRole = Qt::UserRole, FieldRole = Qt::UserRole + 1, KeyRole = Qt::UserRole + 3, SnapshotRole = Qt::UserRole + 6,
-       GroupRole = Qt::UserRole + 7, PresetRole = Qt::UserRole + 8, ConcordanceRole = Qt::UserRole + 9 };
+enum {
+    IdRole = Qt::UserRole,
+    FieldRole = Qt::UserRole + 1,
+    KeyRole = Qt::UserRole + 3,
+    SnapshotRole = Qt::UserRole + 6,
+    GroupRole = Qt::UserRole + 7,
+    PresetRole = Qt::UserRole + 8,
+    ConcordanceRole = Qt::UserRole + 9,
+    ContentRole = Qt::UserRole + 10
+};
 // Columns of the tree of what a snapshot holds
 enum Column { ColName, ColValue, ColTime, ColDelay };
 
@@ -467,6 +477,12 @@ SnapshotPanel::SnapshotPanel(Engine *engine, QUndoStack *undo, QWidget *parent)
     bar->insertWidget(bar->indexOf(m_store) + 1, m_delete);
     bar->insertWidget(bar->indexOf(m_delete) + 1, m_update);
     m_update->setObjectName(QStringLiteral("snapshotUpdate"));
+    auto *duplicateSnapshot = new QPushButton(QStringLiteral("⧉"));
+    duplicateSnapshot->setFixedWidth(30);
+    duplicateSnapshot->setToolTip(QStringLiteral("Duplicate snapshot (Ctrl/Cmd+D)"));
+    duplicateSnapshot->setObjectName("snapshotDuplicate");
+    bar->insertWidget(bar->indexOf(m_update) + 1, duplicateSnapshot);
+    connect(duplicateSnapshot, &QPushButton::clicked, this, [this] { duplicateSelected(false); });
     fields->addLayout(buttons);
     fields->addStretch();
     head->addWidget(m_thumb);
@@ -489,6 +505,22 @@ SnapshotPanel::SnapshotPanel(Engine *engine, QUndoStack *undo, QWidget *parent)
     m_layers->setToolTip(QStringLiteral("Unchecked layers are left alone when the snapshot is recalled; layers the snapshot "
                                         "does not know are hidden.\nClick a value to see it, change it and choose how it "
                                         "gets there (right)."));
+    auto *contentTools = new QHBoxLayout;
+    for (auto tool : {std::pair<const char *, int>{"Copy", 0}, {"Cut", 1}, {"Paste", 2}, {"Remove elements", 3}}) {
+        auto *button = new QPushButton(QString::fromLatin1(tool.first));
+        button->setToolTip(QStringLiteral("Edit stored snapshot elements; the live show stays unchanged. Select "
+                                          "multiple rows with Shift or Ctrl/Cmd."));
+        contentTools->addWidget(button);
+        connect(button, &QPushButton::clicked, this, [this, action = tool.second] {
+            if (action == 2)
+                pasteContents(false);
+            else if (action == 3)
+                deleteContents(false);
+            else
+                copyContents(false, action == 1);
+        });
+    }
+    iv->addLayout(contentTools);
     iv->addWidget(m_layers, 1);
     m_inspector->setMinimumWidth(340);
     m_middle = new QStackedWidget;
@@ -516,6 +548,7 @@ SnapshotPanel::SnapshotPanel(Engine *engine, QUndoStack *undo, QWidget *parent)
     split->setStretchFactor(2, 1);
     split->setSizes({245, 480, 260});
     connectPresets();
+    setupContentEditing();
 
     connect(m_list, &QTreeWidget::currentItemChanged, this, [this](QTreeWidgetItem *it) {
         if (m_filling) return;
@@ -567,6 +600,8 @@ SnapshotPanel::SnapshotPanel(Engine *engine, QUndoStack *undo, QWidget *parent)
     connect(bs, &QShortcut::activated, this, [this] { removeSnapshot(selected()); });
     connect(m_list, &QTreeWidget::customContextMenuRequested, this, [this](const QPoint &pos) {
         QTreeWidgetItem *it = m_list->itemAt(pos);
+        if (it && !it->isSelected())
+            m_list->setCurrentItem(it);
         const int i = indexOf(it);
         const quint64 group = it ? it->data(0, GroupRole).toULongLong() : 0;
         QMenu menu;
@@ -576,6 +611,7 @@ SnapshotPanel::SnapshotPanel(Engine *engine, QUndoStack *undo, QWidget *parent)
             menu.addSeparator();
             menu.addAction(QStringLiteral("Play"), this, [this, i] { recall(i); });
             menu.addAction(QStringLiteral("Update with Current State"), this, [this, i] { updateSnapshot(i); });
+            menu.addAction(QStringLiteral("Duplicate Snapshot"), this, [this] { duplicateSelected(false); });
             menu.addAction(QStringLiteral("Rename"), this, [this] {
                 m_name->setFocus();
                 m_name->selectAll();
@@ -871,7 +907,11 @@ void SnapshotPanel::showInspector(int i)
         return;
     }
     const Engine::Snapshot m = m_engine->snapshot(i);
-    m_title->setText(QStringLiteral("<b>Snapshot %1</b>%2").arg(i + 1).arg(i == m_active ? QStringLiteral(" <span style='color:#4cd964'>▶ recalled last</span>") : QString()));
+    m_title->setText(
+        QStringLiteral("<b>Snapshot %1</b>%2%3")
+            .arg(i + 1)
+            .arg(m.partial ? QStringLiteral(" · Partial — unlisted elements stay unchanged") : QString())
+            .arg(i == m_active ? QStringLiteral(" <span style='color:#4cd964'>▶ recalled last</span>") : QString()));
     m_thumb->setPixmap(thumbnail(m.thumbnail));
     m_name->setText(m.name);
     m_fade->setValue(m.fade);
@@ -881,9 +921,13 @@ void SnapshotPanel::showInspector(int i)
     fillFixtures(m.fixtures);
     for (int row = 0; row < m.layers.size(); ++row) {
         const QJsonObject o = m.layers[row].toObject();
-        auto *it = new QTreeWidgetItem(m_layers, {(o.contains("parent") ? QStringLiteral("    ") : QString()) + o.value("name").toString(),
-                                                  (o.value("enable").toBool(true) ? QStringLiteral("✓ ") : QStringLiteral("— ")) +
-                                                      QStringLiteral("%1%").arg(std::lround(o.value("params").toObject().value("opacity").toDouble(1) * 100))});
+        auto *it = new QTreeWidgetItem(
+            m_layers, {(o.contains("parent") ? QStringLiteral("    ") : QString()) +
+                           o.value("name").toString(
+                               o.value("_label").toString(QStringLiteral("Layer %1").arg(o.value("id").toString()))),
+                       (o.value("enable").toBool(true) ? QStringLiteral("✓ ") : QStringLiteral("— ")) +
+                           QStringLiteral("%1%").arg(
+                               std::lround(o.value("params").toObject().value("opacity").toDouble(1) * 100))});
         it->setData(0, IdRole, o.value("id").toString().toULongLong());
         it->setData(0, KeyRole, QStringLiteral("L") + o.value("id").toString());
         it->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable | Qt::ItemIsUserCheckable);
@@ -1207,7 +1251,7 @@ void SnapshotPanel::fillLayer(QTreeWidgetItem *parent, int row, const QJsonObjec
         QTreeWidgetItem *it;
         if (timeKey.isEmpty()) {
             it = new QTreeWidgetItem(p, {label});
-            it->setFlags(Qt::ItemIsEnabled);
+            it->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
         } else {
             MemField f;
             f.row = row;
@@ -1229,6 +1273,10 @@ void SnapshotPanel::fillLayer(QTreeWidgetItem *parent, int row, const QJsonObjec
         f.row = row;
         f.label = label;
         f.timeKey = timeKey;
+        if (timeKey == "mesh" || timeKey == "masks" || timeKey == "viewports")
+            f.path = {timeKey};
+        if (label == "Transition")
+            f.path = {QStringLiteral("source"), QStringLiteral("transition")};
         auto *it = addField(p, f, QJsonValue(text));
         if (!tip.isEmpty()) it->setToolTip(1, tip);
         return it;
@@ -1242,9 +1290,11 @@ void SnapshotPanel::fillLayer(QTreeWidgetItem *parent, int row, const QJsonObjec
         return addField(p, f, jsonAt(o, path));
     };
 
-    flag(parent, QStringLiteral("Visible"), {"enable"});
-    flag(parent, QStringLiteral("Locked"), {"locked"});
-    if (!group) {
+    if (o.contains("enable"))
+        flag(parent, QStringLiteral("Visible"), {"enable"});
+    if (o.contains("locked"))
+        flag(parent, QStringLiteral("Locked"), {"locked"});
+    if (!group && o.contains("source")) {
         QTreeWidgetItem *what = nullptr;
         if (type == "none" || type.isEmpty()) {
             what = info(parent, QStringLiteral("Source"), QStringLiteral("—"));
@@ -1259,6 +1309,7 @@ void SnapshotPanel::fillLayer(QTreeWidgetItem *parent, int row, const QJsonObjec
         }
         // Another source than the layer's at the recall: its transition, over this time
         m_fields[size_t(what->data(0, FieldRole).toInt())].timeKey = QStringLiteral("file");
+        m_fields[size_t(what->data(0, FieldRole).toInt())].path = {QStringLiteral("source")};
         showTime(what, m_fields[size_t(what->data(0, FieldRole).toInt())]);
         const QString tr = src.value("transition").toString();
         info(parent, QStringLiteral("Transition"), tr.isEmpty() ? QStringLiteral("Default") : QFileInfo(tr).completeBaseName(), tr);
@@ -1272,7 +1323,7 @@ void SnapshotPanel::fillLayer(QTreeWidgetItem *parent, int row, const QJsonObjec
         info(parent, QStringLiteral("Mesh"), QStringLiteral("%1 × %2").arg(mesh.value("cols").toInt(4)).arg(mesh.value("rows").toInt(4)),
              QStringLiteral("Its warp's points"), QStringLiteral("mesh"));
     }
-    {
+    if (o.contains("masks")) {
         const int n = o.value("masks").toArray().size();
         info(parent, QStringLiteral("Masks"), n ? QString::number(n) : QStringLiteral("None"),
              QStringLiteral("Its masks: the same shapes move there (points, handles, soft edge), others are set at once"),
@@ -1283,6 +1334,7 @@ void SnapshotPanel::fillLayer(QTreeWidgetItem *parent, int row, const QJsonObjec
     const QJsonArray anims = o.value("anims").toArray();
     if (!anims.isEmpty()) {
         QTreeWidgetItem *sec = node(parent, QStringLiteral("Animations (%1)").arg(anims.size()), QStringLiteral("anims"), QString());
+        sec->setData(0, ContentRole, QVariantMap{{"row", row}, {"path", QStringList{"anims"}}});
         for (const QJsonValue &v : anims) {
             const QJsonObject a = v.toObject();
             const QString state = a.value("state").toString(QStringLiteral("playing"));
@@ -1356,6 +1408,8 @@ void SnapshotPanel::fillLayer(QTreeWidgetItem *parent, int row, const QJsonObjec
         const int cut = c.lastIndexOf(kSep);
         QTreeWidgetItem *up = categoryNode(cut < 0 ? QString() : c.left(cut));
         QTreeWidgetItem *it = node(up, cut < 0 ? c : c.mid(cut + kSep.size()), QStringLiteral("cat/") + c, sharedAddress(pathsIn.value(c)));
+        if (c == "FX")
+            it->setData(0, ContentRole, QVariantMap{{"row", row}, {"path", QStringList{"fx"}}});
         categories.insert(c, it);
         return it;
     };
@@ -1519,6 +1573,44 @@ void SnapshotPanel::updateSnapshot(int i)
 {
     if (i < 0 || i >= m_engine->snapshotCount()) return;
     Engine::Snapshot m = m_engine->snapshot(i);
+    if (m.partial) {
+        auto update = [](QJsonObject stored, const QJsonObject &live) {
+            for (auto it = stored.begin(); it != stored.end(); ++it) {
+                if (it.key() == "timing" || it.key() == "easing" || it.key() == "delay" || it.key() == "included" ||
+                    it.key() == "id")
+                    continue;
+                if (it.key() == "params") {
+                    auto params = it.value().toObject();
+                    const auto now = live.value("params").toObject();
+                    for (auto p = params.begin(); p != params.end(); ++p)
+                        if (now.contains(p.key()))
+                            p.value() = now.value(p.key());
+                    it.value() = params;
+                } else if (live.contains(it.key()))
+                    it.value() = live.value(it.key());
+            }
+            return stored;
+        };
+        for (int row = 0; row < m.layers.size(); ++row) {
+            const auto stored = m.layers[row].toObject();
+            const int live = m_engine->indexOfId(stored.value("id").toString().toULongLong());
+            if (live >= 0)
+                m.layers[row] = update(stored, m_engine->layerJson(live));
+        }
+        m.composition = update(m.composition, m_engine->captureComposition());
+        auto updateRows = [&](QJsonArray &stored, const QJsonArray &live) {
+            for (int row = 0; row < stored.size(); ++row)
+                for (const auto &now : live)
+                    if (now.toObject().value("id") == stored[row].toObject().value("id"))
+                        stored[row] = update(stored[row].toObject(), now.toObject());
+        };
+        updateRows(m.interactions, m_engine->captureInteractions());
+        updateRows(m.fixtures, m_engine->captureFixtures());
+        cmd::editSnapshotLibrary(m_undo, m_engine, QStringLiteral("Update Snapshot Elements"),
+                                 [&] { m_engine->setSnapshot(i, m); });
+        emit edited();
+        return;
+    }
     // Layers left out stay out; the times given to values are kept
     QSet<quint64> excluded;
     QHash<quint64, QJsonValue> timing, easings, delays;
@@ -1593,7 +1685,7 @@ void SnapshotPanel::updateSnapshot(int i)
 void SnapshotPanel::removeSnapshot(int i)
 {
     if (i < 0 || i >= m_engine->snapshotCount()) return;
-    m_engine->removeSnapshot(i);
+    cmd::editSnapshotLibrary(m_undo, m_engine, QStringLiteral("Delete Snapshot"), [&] { m_engine->removeSnapshot(i); });
     emit edited();
 }
 
@@ -1634,6 +1726,8 @@ void SnapshotPanel::fillComposition(const QJsonObject &c)
         f.step = 0.01;
         f.label = label;
         f.timeKey = key;
+        if (!c.contains(key))
+            return;
         addField(top, f, c.value(key))->setToolTip(0, tip);
     };
     num(QStringLiteral("Opacity"), QStringLiteral("opacity"), 1, QStringLiteral("The composition fader (the blackout stays apart)"));
@@ -1651,7 +1745,7 @@ void SnapshotPanel::fillInteractions(const QJsonArray &interactions)
     QFont bold = top->font(0);
     bold.setBold(true);
     top->setFont(0, bold);
-    top->setFlags(Qt::ItemIsEnabled);
+    top->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
     QHash<quint64, QString> names; // their names now (renamed since: the new one)
     for (const Interaction &x : m_engine->interactions()) names.insert(x.id, x.name);
     for (int k = 0; k < interactions.size(); ++k) {
@@ -1777,7 +1871,7 @@ void SnapshotPanel::fillFixtures(const QJsonArray &fixtures)
     QFont bold = top->font(0);
     bold.setBold(true);
     top->setFont(0, bold);
-    top->setFlags(Qt::ItemIsEnabled);
+    top->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
     const FixturePatch patch = m_engine->fixturePatch();
     for (int k = 0; k < fixtures.size(); ++k) {
         const QJsonObject o = fixtures[k].toObject();
@@ -1910,6 +2004,10 @@ QWidget *SnapshotPanel::buildPresetView()
     m_presetDelete = new QPushButton(QStringLiteral("Delete"));
     buttons->addWidget(m_presetUpdate);
     buttons->addWidget(m_presetDelete);
+    auto *duplicatePreset = new QPushButton(QStringLiteral("Duplicate"));
+    duplicatePreset->setObjectName("presetDuplicate");
+    buttons->addWidget(duplicatePreset);
+    connect(duplicatePreset, &QPushButton::clicked, this, [this] { duplicateSelected(true); });
     v->addLayout(buttons);
     m_presetValues = new QTreeWidget;
     m_presetValues->setObjectName(QStringLiteral("presetValues"));
@@ -1926,6 +2024,20 @@ QWidget *SnapshotPanel::buildPresetView()
     m_presetValues->setContextMenuPolicy(Qt::CustomContextMenu);
     m_presetValues->setToolTip(QStringLiteral("What the preset holds. Time: Follow (the preset's fade), 0 (a cut) or seconds "
                                               "of its own. Delete: takes the value out."));
+    auto *contentTools = new QHBoxLayout;
+    for (auto tool : {std::pair<const char *, int>{"Copy", 0}, {"Cut", 1}, {"Paste", 2}, {"Remove elements", 3}}) {
+        auto *button = new QPushButton(QString::fromLatin1(tool.first));
+        contentTools->addWidget(button);
+        connect(button, &QPushButton::clicked, this, [this, action = tool.second] {
+            if (action == 2)
+                pasteContents(true);
+            else if (action == 3)
+                deleteContents(true);
+            else
+                copyContents(true, action == 1);
+        });
+    }
+    v->addLayout(contentTools);
     v->addWidget(m_presetValues, 1);
     return w;
 }
@@ -1990,11 +2102,14 @@ void SnapshotPanel::connectPresets()
         showPreset();
     });
     connect(m_presets, &QTreeWidget::customContextMenuRequested, this, [this, removePreset](const QPoint &pos) {
+        if (auto *item = m_presets->itemAt(pos); item && !item->isSelected())
+            m_presets->setCurrentItem(item);
         QMenu menu;
         menu.addAction(QStringLiteral("New Preset"), m_presetNew, &QPushButton::click);
         if (m_presets->itemAt(pos)) {
             menu.addSeparator();
             menu.addAction(QStringLiteral("Recall"), this, [this] { recallPreset(selectedPreset()); });
+            menu.addAction(QStringLiteral("Duplicate Preset"), this, [this] { duplicateSelected(true); });
             menu.addAction(QStringLiteral("Rename"), this, [this] {
                 m_presetName->setFocus();
                 m_presetName->selectAll();
@@ -2057,40 +2172,13 @@ void SnapshotPanel::connectPresets()
             for (auto &interaction : p.interactions)
                 for (const auto &live : m_engine->interactions()) if (live.id == interaction.id) interaction = live;
             for (Engine::PresetValue &v : p.values) {
-                const QJsonValue now = m_engine->parameterValue(v.layer, v.path);
+                const QJsonValue now = m_engine->presetValue(v.layer, v.path).value;
                 if (!now.isUndefined()) v.value = now;
             }
         });
     });
     // A value taken out (Delete, or its menu); its easing
-    auto removeValues = [this, edit] {
-        QList<QPair<quint64, QString>> out;
-        for (QTreeWidgetItem *it : m_presetValues->selectedItems()) {
-            if (it->data(0, KeyRole).toString().isEmpty()) { // a layer: all its values
-                for (int c = 0; c < it->childCount(); ++c)
-                    out.append({it->child(c)->data(0, IdRole).toULongLong(), it->child(c)->data(0, KeyRole).toString()});
-            } else {
-                out.append({it->data(0, IdRole).toULongLong(), it->data(0, KeyRole).toString()});
-            }
-        }
-        if (out.isEmpty()) return;
-        edit(QStringLiteral("Remove from Preset"), QString(), [&](Engine::Preset &p) {
-            for (const auto &entry : out) {
-                const QString key = entry.second;
-                if (key.startsWith(QLatin1String("@geometry/"))) p.geometry.remove(key.mid(10));
-                if (key.startsWith(QLatin1String("@category/"))) p.categories.remove(key.mid(10));
-                if (key.startsWith(QLatin1String("@animation/"))) p.animations.erase(std::remove_if(p.animations.begin(), p.animations.end(), [&](const Animation &a) {
-                    return !a.tracks.empty() && a.tracks.front().layer == entry.first && a.tracks.front().param == key.mid(11);
-                }), p.animations.end());
-                if (key.startsWith(QLatin1String("@interaction/"))) p.interactions.erase(std::remove_if(p.interactions.begin(), p.interactions.end(), [&](const Interaction &i) {
-                    return i.id == key.mid(13).toULongLong();
-                }), p.interactions.end());
-            }
-            auto &v = p.values;
-            v.erase(std::remove_if(v.begin(), v.end(), [&](const Engine::PresetValue &x) { return out.contains({x.layer, x.path}); }),
-                    v.end());
-        });
-    };
+    auto removeValues = [this] { deleteContents(true); };
     m_presetValues->setSelectionMode(QAbstractItemView::ExtendedSelection);
     for (auto key : {QKeySequence(QKeySequence::Delete), QKeySequence(Qt::Key_Backspace)}) {
         auto *del = new QShortcut(key, m_presetValues, nullptr, nullptr, Qt::WidgetShortcut);
@@ -2098,8 +2186,18 @@ void SnapshotPanel::connectPresets()
     }
     connect(m_presetValues, &QTreeWidget::customContextMenuRequested, this, [this, edit, removeValues](const QPoint &pos) {
         QTreeWidgetItem *it = m_presetValues->itemAt(pos);
-        if (!it) return;
+        if (it && !it->isSelected())
+            m_presetValues->setCurrentItem(it);
         QMenu menu;
+        menu.addAction(QStringLiteral("Copy elements"), this, [this] { copyContents(true); });
+        menu.addAction(QStringLiteral("Cut elements"), this, [this] { copyContents(true, true); });
+        menu.addAction(QStringLiteral("Paste elements"), this, [this] { pasteContents(true); })
+            ->setEnabled(QApplication::clipboard()->mimeData()->hasFormat("application/x-nyxmap-stored-content"));
+        menu.addSeparator();
+        if (!it) {
+            menu.exec(m_presetValues->viewport()->mapToGlobal(pos));
+            return;
+        }
         const QString path = it->data(0, KeyRole).toString();
         if (!path.isEmpty() && !path.startsWith(QLatin1Char('@'))) {
             const quint64 layer = it->data(0, IdRole).toULongLong();
@@ -2266,7 +2364,10 @@ void SnapshotPanel::showPreset()
         if (layer) { Engine::Lock lock(&m_engine->mutex());
             if (const Layer *l = m_engine->layer(m_engine->indexOfId(layer))) owner = l->name + QStringLiteral(" › ");
         }
-        auto *item = new QTreeWidgetItem(m_presetValues, {owner + label, summary});
+        auto *item = new QTreeWidgetItem(layerItem(layer, key.startsWith("@interaction/")
+                                                              ? QStringLiteral("interaction/%1/").arg(key.mid(13))
+                                                              : QString()),
+                                         {label, summary});
         item->setData(0, IdRole, layer);
         item->setData(0, KeyRole, key);
         item->setToolTip(0, QStringLiteral("Stored definition; right-click to remove from preset"));
@@ -2491,4 +2592,244 @@ void SnapshotPanel::recallPreset(int i)
     if (i < 0 || i >= m_engine->presetCount()) return;
     m_undo->push(new cmd::RecallPreset(m_engine, m_engine->preset(i).id));
     emit recalled();
+}
+
+std::vector<StoredContent::Selection> SnapshotPanel::snapshotSelection() const
+{
+    using Owner = StoredContent::Owner;
+    std::vector<StoredContent::Selection> result;
+    const auto snapshot = m_engine->snapshot(selected());
+    auto forRow = [&](int row, const QStringList &path) {
+        const auto object = rowObject(snapshot, row);
+        const auto owner = row <= kFixtureRow ? Owner::Fixture
+                           : row <= -2        ? Owner::Interaction
+                           : row < 0          ? Owner::Composition
+                                              : Owner::Layer;
+        result.push_back({owner, object.value("id").toString(), path});
+    };
+    std::function<void(QTreeWidgetItem *)> collect = [&](QTreeWidgetItem *item) {
+        const auto key = item->data(0, KeyRole).toString();
+        if (item->parent() == nullptr && key.startsWith('L')) {
+            for (int row = 0; row < snapshot.layers.size(); ++row)
+                if (snapshot.layers[row].toObject().value("id").toString() == key.mid(1))
+                    forRow(row, {});
+            return;
+        }
+        if (key == "composition") {
+            forRow(-1, {});
+            return;
+        }
+        if (item->data(0, IdRole).isValid() && (key.startsWith('I') || key.startsWith('F'))) {
+            const auto &list = key.startsWith('I') ? snapshot.interactions : snapshot.fixtures;
+            for (int row = 0; row < list.size(); ++row)
+                if (list[row].toObject().value("id").toString() == key.mid(1))
+                    forRow(key.startsWith('I') ? -2 - row : kFixtureRow - row, {});
+            return;
+        }
+        const auto data = item->data(0, ContentRole).toMap();
+        if (!data.isEmpty())
+            forRow(data.value("row").toInt(), data.value("path").toStringList());
+        const auto field = item->data(0, FieldRole);
+        if (field.isValid()) {
+            const auto &f = m_fields[size_t(field.toInt())];
+            if (!f.path.isEmpty())
+                forRow(f.row, f.path);
+        }
+        for (int child = 0; child < item->childCount(); ++child)
+            collect(item->child(child));
+    };
+    for (auto *item : m_layers->selectedItems()) {
+        bool nested = false;
+        for (auto *parent = item->parent(); parent; parent = parent->parent())
+            if (parent->isSelected())
+                nested = true;
+        if (!nested)
+            collect(item);
+    }
+    return result;
+}
+std::vector<StoredContent::PresetSelection> SnapshotPanel::presetSelection() const
+{
+    std::vector<StoredContent::PresetSelection> result;
+    std::function<void(QTreeWidgetItem *)> collect = [&](QTreeWidgetItem *item) {
+        const auto key = item->data(0, KeyRole).toString();
+        if (!key.isEmpty())
+            result.push_back({item->data(0, IdRole).toULongLong(), key});
+        for (int c = 0; c < item->childCount(); ++c)
+            collect(item->child(c));
+    };
+    for (auto *item : m_presetValues->selectedItems()) {
+        bool nested = false;
+        for (auto *p = item->parent(); p; p = p->parent())
+            if (p->isSelected())
+                nested = true;
+        if (!nested)
+            collect(item);
+    }
+    return result;
+}
+void SnapshotPanel::copyContents(bool preset, bool cut)
+{
+    Engine::Snapshot fragment;
+    if (preset) {
+        const int index = selectedPreset();
+        if (index < 0)
+            return;
+        auto items = presetSelection();
+        if (items.empty())
+            return;
+        fragment = StoredContent::fromPreset(StoredContent::select(m_engine->preset(index), items));
+    } else {
+        if (selected() < 0)
+            return;
+        auto items = snapshotSelection();
+        if (items.empty())
+            return;
+        fragment = StoredContent::select(m_engine->snapshot(selected()), items);
+    }
+    auto *mime = new QMimeData;
+    const auto bytes = StoredContent::encode(fragment);
+    mime->setData("application/x-nyxmap-stored-content", bytes);
+    mime->setText(QString::fromUtf8(bytes));
+    QApplication::clipboard()->setMimeData(mime);
+    if (cut)
+        deleteContents(preset);
+}
+void SnapshotPanel::pasteContents(bool preset)
+{
+    Engine::Snapshot fragment;
+    if (!StoredContent::decode(QApplication::clipboard()->mimeData()->data("application/x-nyxmap-stored-content"),
+                               &fragment))
+        return;
+    if (preset) {
+        const int index = selectedPreset();
+        if (index < 0)
+            return;
+        const auto id = m_engine->preset(index).id;
+        const auto added = StoredContent::toPreset(fragment);
+        cmd::editPresets(m_undo, m_engine, QStringLiteral("Paste Preset Elements"), [&](auto &all) {
+            for (auto &p : all)
+                if (p.id == id)
+                    StoredContent::merge(p, added);
+        });
+    } else {
+        const int index = selected();
+        if (index < 0)
+            return;
+        auto snapshot = m_engine->snapshot(index);
+        StoredContent::merge(snapshot, fragment);
+        cmd::editSnapshotLibrary(m_undo, m_engine, QStringLiteral("Paste Snapshot Elements"),
+                                 [&] { m_engine->setSnapshot(index, snapshot); });
+    }
+    emit edited();
+}
+void SnapshotPanel::deleteContents(bool preset)
+{
+    if (preset) {
+        const int index = selectedPreset();
+        if (index < 0)
+            return;
+        const auto items = presetSelection();
+        if (items.empty())
+            return;
+        const auto id = m_engine->preset(index).id;
+        cmd::editPresets(m_undo, m_engine, QStringLiteral("Remove Preset Elements"), [&](auto &all) {
+            for (auto &p : all)
+                if (p.id == id)
+                    StoredContent::remove(p, items);
+        });
+    } else {
+        const int index = selected();
+        if (index < 0)
+            return;
+        const auto items = snapshotSelection();
+        if (items.empty())
+            return;
+        auto snapshot = m_engine->snapshot(index);
+        StoredContent::remove(snapshot, items);
+        cmd::editSnapshotLibrary(m_undo, m_engine, QStringLiteral("Remove Snapshot Elements"),
+                                 [&] { m_engine->setSnapshot(index, snapshot); });
+    }
+    emit edited();
+}
+void SnapshotPanel::duplicateSelected(bool preset)
+{
+    if (preset) {
+        const int index = selectedPreset();
+        if (index < 0)
+            return;
+        const auto before = m_engine->presets();
+        auto copy = m_engine->preset(index);
+        copy.id = 0;
+        copy.name += QStringLiteral(" (copy)");
+        const int added = m_engine->addPreset(copy, index + 1);
+        const auto id = m_engine->preset(added).id;
+        if (m_undo)
+            m_undo->push(
+                new cmd::SetPresets(m_engine, before, m_engine->presets(), QStringLiteral("Duplicate Preset")));
+        selectPreset(id);
+    } else {
+        const int index = selected();
+        if (index < 0)
+            return;
+        auto copy = m_engine->snapshot(index);
+        copy.id = 0;
+        copy.name += QStringLiteral(" (copy)");
+        int added = -1;
+        cmd::editSnapshotLibrary(m_undo, m_engine, QStringLiteral("Duplicate Snapshot"),
+                                 [&] { added = m_engine->addSnapshot(copy, index + 1); });
+        if (auto *item = itemOf(added))
+            m_list->setCurrentItem(item);
+    }
+    emit edited();
+}
+void SnapshotPanel::setupContentEditing()
+{
+    m_layers->setSelectionMode(QAbstractItemView::ExtendedSelection);
+    m_layers->setContextMenuPolicy(Qt::CustomContextMenu);
+    m_layers->setToolTip(QStringLiteral("Checked: included on recall. Unchecked: retained but left alone. Delete "
+                                        "removes stored elements. Copy / Cut / Paste preserve their timing."));
+    connect(m_layers, &QTreeWidget::customContextMenuRequested, this, [this](const QPoint &point) {
+        if (auto *item = m_layers->itemAt(point); item && !item->isSelected())
+            m_layers->setCurrentItem(item);
+        QMenu menu;
+        menu.addAction(QStringLiteral("Copy elements"), this, [this] { copyContents(false); })
+            ->setEnabled(!snapshotSelection().empty());
+        menu.addAction(QStringLiteral("Cut elements"), this, [this] { copyContents(false, true); })
+            ->setEnabled(!snapshotSelection().empty());
+        menu.addAction(QStringLiteral("Paste elements"), this, [this] { pasteContents(false); })
+            ->setEnabled(QApplication::clipboard()->mimeData()->hasFormat("application/x-nyxmap-stored-content"));
+        menu.addSeparator();
+        menu.addAction(QStringLiteral("Remove from Snapshot"), this, [this] { deleteContents(false); })
+            ->setEnabled(!snapshotSelection().empty());
+        menu.addSeparator();
+        menu.addAction(QStringLiteral("Expand all"), m_layers, &QTreeWidget::expandAll);
+        menu.addAction(QStringLiteral("Collapse all"), m_layers, &QTreeWidget::collapseAll);
+        menu.exec(m_layers->viewport()->mapToGlobal(point));
+    });
+    for (bool preset : {false, true}) {
+        auto *tree = preset ? m_presetValues : m_layers;
+        for (auto entry : {std::pair<QKeySequence::StandardKey, int>{QKeySequence::Copy, 0},
+                           {QKeySequence::Cut, 1},
+                           {QKeySequence::Paste, 2}}) {
+            auto *shortcut = new QShortcut(QKeySequence(entry.first), tree);
+            shortcut->setContext(Qt::WidgetShortcut);
+            connect(shortcut, &QShortcut::activated, this, [this, preset, action = entry.second] {
+                if (action == 2)
+                    pasteContents(preset);
+                else
+                    copyContents(preset, action == 1);
+            });
+        }
+        if (!preset)
+            for (auto key : {QKeySequence(QKeySequence::Delete), QKeySequence(Qt::Key_Backspace)}) {
+                auto *shortcut = new QShortcut(key, tree);
+                shortcut->setContext(Qt::WidgetShortcut);
+                connect(shortcut, &QShortcut::activated, this, [this] { deleteContents(false); });
+            }
+        auto *list = preset ? m_presets : m_list;
+        auto *duplicate = new QShortcut(QKeySequence(Qt::CTRL | Qt::Key_D), list);
+        duplicate->setContext(Qt::WidgetShortcut);
+        connect(duplicate, &QShortcut::activated, this, [this, preset] { duplicateSelected(preset); });
+    }
 }

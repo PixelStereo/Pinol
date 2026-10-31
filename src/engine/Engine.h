@@ -357,6 +357,7 @@ public:
         quint64 id = 0;     // stable (sequences refer to it); given by addSnapshot
         QString name;
         double fade = 1.0;  // seconds
+        bool partial = false; // edited subset: unmentioned layers/interactions are left alone
         QImage thumbnail;   // output at the time it was stored
         QJsonArray layers;  // layerJson of the layers, with "included" (false: left alone by the recall)
         // The composition: its opacity and the sound volume, with "included" and "timing" as a layer's
@@ -421,6 +422,7 @@ public:
         bool operator==(const SnapshotNode &o) const;
     };
     std::vector<SnapshotNode> snapshotTree() const;
+    void setSnapshots(const std::vector<Snapshot> &all, const std::vector<SnapshotNode> &tree);
     // Rearranged (dragged, grouped): a group without an id gets one; a snapshot missing from it goes at the end, one
     // it does not have is dropped; the snapshots' order follows
     void setSnapshotTree(const std::vector<SnapshotNode> &tree);
@@ -1201,6 +1203,7 @@ private:
         QString param;
         std::vector<std::pair<double, quint64>> cues; // (timecode, step's runtime id), by timecode
         double last = std::numeric_limits<double>::quiet_NaN(); // the clock at the last frame (none yet)
+        bool muted = false;
     };
     std::vector<SequenceClock> m_sequenceClocks;
     quint64 m_sequenceClocksRevision = ~0ULL;

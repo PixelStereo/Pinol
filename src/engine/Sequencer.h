@@ -70,6 +70,7 @@ public:
         quint64 runtimeId = 0; // stable across edits; assigned by Sequencer, not serialized
         quint64 preset = 0;
         quint64 sequence = 0; // starts this sequence from its first step; stable identity across edits/save/load
+        std::vector<Step> actions; // optional flat action group, sharing this cue's waits and continuation
         double at = -1;       // its timecode on the sequence's clock, in seconds (< 0: none)
     };
     // A step on its way: since its GO, through its pre-wait, its action, and until the next step's GO
@@ -82,6 +83,7 @@ public:
         double elapsed = 0; // since its GO
         double preWait = 0, duration = 0, postWait = 0;
         StepContinue next = StepContinue::Wait;
+        double fixedDuration = 0; // non-timeline actions in a group, measured from its actual dispatch
         bool fired = false, continued = false;
         bool trackPending = false, tracking = false; // a Play: its action lasts as long as the timeline does
         std::vector<quint64> callers; // reference ancestry, carried through follows to reject cyclic calls
@@ -99,6 +101,7 @@ public:
     struct Sequence {
         QString name;
         bool loop = false; // GO on the last step goes to the first
+        bool editMode = false; // suspend external timecode and automatic chaining while editing
         bool tracking = true; // a jump plays first what the steps before it leave
         std::vector<Step> steps;
         quint64 clockLayer = 0; // the clock its steps' timecodes are on: a value of the show (a layer's id, 0: the
@@ -197,6 +200,8 @@ public:
     double stepDuration(const Step &st) const;
 
     // The project's: saved, loaded, cleared (the caller emits changed / positionChanged once it is all in)
+    static QJsonObject stepToJson(const Step &step);
+    static Step stepFromJson(const QJsonObject &json);
     QJsonArray toJson() const;
     void fromJson(const QJsonArray &a, int current);
     void clear();

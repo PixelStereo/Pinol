@@ -86,6 +86,7 @@ Fullscreen windows on every display, plus **Syphon, Spout, NDI, OMT and Blackmag
 
 Every button, parameter and cue in NYXMAP has an address.
 
+- **Stored looks and cue editing**: duplicate snapshots/presets, transfer stored elements, group cue actions and suspend timecode while editing. → [Editing guide](docs/show-editing.md)
 - **Camera motion and gestures**: reference/relative difference masks, independent pixel analysis, and optional local hand tracking. → [Vision interactions](docs/vision-interactions.md)
 - **OSC and OSCQuery**: browse the whole show from any OSC tool. → [OSC API](docs/osc.md)
 - **Open Stage Control**: a ready-made touch remote for tablets and phones. → [Setup guide](docs/openstagecontrol-help.md)

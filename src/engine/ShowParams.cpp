@@ -143,11 +143,13 @@ void Engine::followSequenceClocks()
             const Sequencer::Sequence s = seq.sequence(i);
             if (s.clockParam.isEmpty()) continue;
             SequenceClock c{seq.sequenceId(i), s.clockLayer, s.clockParam, {}};
+            c.muted = s.editMode;
             for (const Sequencer::Step &st : s.steps)
                 if (st.at >= 0) c.cues.emplace_back(st.at, st.runtimeId);
             std::stable_sort(c.cues.begin(), c.cues.end(), [](const auto &a, const auto &b) { return a.first < b.first; });
             for (const SequenceClock &old : m_sequenceClocks) // where its clock was, when it is the same clock
-                if (old.sequence == c.sequence && old.layer == c.layer && old.param == c.param) c.last = old.last;
+                if (old.sequence == c.sequence && old.layer == c.layer && old.param == c.param && old.muted == c.muted)
+                    c.last = old.last;
             if (!c.cues.empty()) clocks.push_back(std::move(c));
         }
         m_sequenceClocks = std::move(clocks);
@@ -157,6 +159,8 @@ void Engine::followSequenceClocks()
         const double t = p ? p->asNumber() : std::numeric_limits<double>::quiet_NaN();
         if (!std::isfinite(t)) continue;
         const double last = std::exchange(c.last, t);
+        if (c.muted)
+            continue;
         if (!std::isfinite(last) || t == last) continue; // its first reading, or standing still
         if (t > last && t - last <= 1.0) {
             for (const auto &[at, step] : c.cues)

@@ -404,6 +404,10 @@ void Engine::stepScheduledRecall(double dt)
         if (index < 0 || isLocked(index)) continue;
         takeOverFades(value.layer, QSet<QString>{value.path});
         if (Layer *l = layer(index)) {
+            if (value.path == "enable") {
+                l->enabled = value.value.toBool();
+                continue;
+            }
             auto job = std::make_shared<FadeJob>();
             job->id = value.layer;
             if (value.showing) l->enabled = true;
@@ -543,6 +547,15 @@ void Engine::recallPreset(int i)
         if (!l) continue;
         auto job = std::make_shared<FadeJob>();
         job->id = layerId;
+        if (params.contains("enable")) {
+            const double delay = delayOf(delays, QStringLiteral("enable"));
+            if (delay > 0)
+                scheduleRecall(layerId, QStringLiteral("enable"), params.value("enable"), 0, QString(), delay);
+            else {
+                cancelScheduledRecall(layerId, QStringLiteral("enable"));
+                l->enabled = params.value("enable").toBool();
+            }
+        }
         applyParams(*l, params, timing, easing, fade, *job, false, false, false, delays);
         if (!job->done()) m_fades.push_back(std::move(job));
     }
@@ -706,7 +719,7 @@ QJsonArray Engine::captureRecallLayers(int snapshotIndex) const
         const Layer &l = *m_layers[size_t(i)];
         if (l.isViewport || isLocked(i)) continue; // recall also skips locked/viewport layers
         const bool touchedByState = included.contains(l.id);
-        const bool hiddenByRecall = !named.contains(l.id) && l.enabled;
+        const bool hiddenByRecall = !m_snapshots[size_t(snapshotIndex)].partial && !named.contains(l.id) && l.enabled;
         if (!touchedByState && !hiddenByRecall) continue;
 
         // This is an undo, not a snapshot capture: animation-driven values
@@ -914,9 +927,19 @@ void Engine::recallSnapshotCopy(const Snapshot &m, int i)
     if (m.layers.isEmpty() && m.composition.isEmpty() && m.interactions.isEmpty() && m.fixtures.isEmpty() &&
         interactions().empty())
         return;
-    if (!m.layers.isEmpty()) applyLayers(m.layers, m.fade, true);
+    if (!m.layers.isEmpty())
+        applyLayers(m.layers, m.fade, !m.partial);
     applyComposition(m.composition, m.fade);
-    applyInteractions(m.interactions, m.fade);
+    auto interactionStates = m.interactions;
+    if (m.partial) {
+        QSet<QString> held;
+        for (const auto &state : interactionStates)
+            held.insert(state.toObject().value("id").toString());
+        for (const auto &live : interactions())
+            if (!held.contains(QString::number(live.id)))
+                interactionStates.append(QJsonObject{{"id", QString::number(live.id)}, {"included", false}});
+    }
+    applyInteractions(interactionStates, m.fade);
     applyFixtures(m.fixtures, m.fade);
     {
         Lock lk(&m_mutex);
@@ -988,12 +1011,20 @@ void Engine::applyLayers(const QJsonArray &layers, double fade, bool hideOthers)
         // Source replacement must not install delayed target values as its initial state.
         // Common addresses retain their live value; new-source-only addresses retain the source default.
         auto incomingState = [&](const QJsonObject &live) {
-            QJsonObject state = o, initial = params;
+            const bool partial = o.value("_partial").toBool();
+            QJsonObject state = partial ? live : o, initial = partial ? live.value("params").toObject() : params;
+            for (auto it = o.begin(); it != o.end(); ++it)
+                state[it.key()] = it.value();
+            for (auto it = params.begin(); it != params.end(); ++it)
+                initial[it.key()] = it.value();
             const QJsonObject previous = live.value("params").toObject();
             for (auto it = params.begin(); it != params.end(); ++it) {
-                if (delayOf(delays, it.key()) <= 0) continue;
-                if (previous.contains(it.key())) initial.insert(it.key(), previous.value(it.key()));
-                else initial.remove(it.key());
+                if (delayOf(delays, it.key()) <= 0)
+                    continue;
+                if (previous.contains(it.key()))
+                    initial.insert(it.key(), previous.value(it.key()));
+                else
+                    initial.remove(it.key());
             }
             state.insert("params", initial);
             if (delayOf(delays, "opacity") > 0 && params.contains("opacity"))
@@ -1026,16 +1057,21 @@ void Engine::applyLayers(const QJsonArray &layers, double fade, bool hideOthers)
             if (idx >= 0 && !locked) cur = layerJson(idx);
         }
         if (locked) continue; // a locked layer is not changed by a snapshot
+        if (idx < 0 && !o.contains("source") && !o.value("group").toBool())
+            continue;
         if (idx < 0) { // removed since: recreated at the bottom (its animations as the snapshot has them)
             takeOver(id, {}, true);
             const int at = insertLayerJson(layerCount(), incomingState({}));
             scheduleIncoming();
             Lock lk(&m_mutex);
-            if (Layer *l = layer(at)) recallLayerAnims(*l, o.value("anims").toArray());
+            if (Layer *l = layer(at))
+                if (o.contains("anims"))
+                    recallLayerAnims(*l, o.value("anims").toArray());
             continue;
         }
-        const QJsonObject curSrc = cur.value("source").toObject(), src = o.value("source").toObject();
-        const bool group = o.value("group").toBool();
+        const QJsonObject curSrc = cur.value("source").toObject(),
+                          src = o.contains("source") ? o.value("source").toObject() : curSrc;
+        const bool group = o.value("group").toBool(cur.value("group").toBool());
         auto job = std::make_shared<FadeJob>();
         job->id = id;
         // A number on its way from `from` to the snapshot's, in its time; at once when it has none
@@ -1074,7 +1110,8 @@ void Engine::applyLayers(const QJsonArray &layers, double fade, bool hideOthers)
                 Lock lk(&m_mutex);
                 if (Layer *l = layer(indexOfId(id))) {
                     l->anims = anims;
-                    recallLayerAnims(*l, o.value("anims").toArray());
+                    if (o.contains("anims"))
+                        recallLayerAnims(*l, o.value("anims").toArray());
                 }
             };
             if (t <= 0) {
@@ -1119,15 +1156,20 @@ void Engine::applyLayers(const QJsonArray &layers, double fade, bool hideOthers)
             continue;
         }
         // Another chain of effects: at once, with its values
-        const bool chain = effectPaths(cur.value("fx").toArray()) != effectPaths(o.value("fx").toArray());
+        const bool chain =
+            o.contains("fx") && effectPaths(cur.value("fx").toArray()) != effectPaths(o.value("fx").toArray());
         if (chain) setEffectsJsonById(id, o.value("fx").toArray());
 
         // The values this state sets: their fades from other snapshots stop here
         QSet<QString> owned;
         for (auto it = params.constBegin(); it != params.constEnd(); ++it) owned.insert(it.key());
-        owned << QStringLiteral("viewports") << QStringLiteral("opacity");
+        if (o.contains("viewports"))
+            owned << QStringLiteral("viewports");
+        if (o.contains("enable"))
+            owned << QStringLiteral("opacity");
         if (o.contains("mesh")) owned << QStringLiteral("mesh");
-        owned << QStringLiteral("masks");
+        if (o.contains("masks"))
+            owned << QStringLiteral("masks");
         takeOver(id, owned);
 
         Lock lk(&m_mutex);
@@ -1142,9 +1184,12 @@ void Engine::applyLayers(const QJsonArray &layers, double fade, bool hideOthers)
             l->applyTox();
         }
         l->name = o.value("name").toString(l->name);
-        recallLayerAnims(*l, o.value("anims").toArray());
-        if (!group) l->color.maskLayer = o.value("mask").toString().toULongLong();
-        l->matte = LayerMatte::fromJson(o.value("matte").toObject());
+        if (o.contains("anims"))
+            recallLayerAnims(*l, o.value("anims").toArray());
+        if (!group && o.contains("mask"))
+            l->color.maskLayer = o.value("mask").toString().toULongLong();
+        if (o.contains("matte"))
+            l->matte = LayerMatte::fromJson(o.value("matte").toObject());
         const QJsonArray fx = o.value("fx").toArray();
         for (size_t k = 0; k < l->effects.size() && int(k) < fx.size(); ++k) { // their masks
             const QJsonObject e = fx[int(k)].toObject();
@@ -1152,7 +1197,7 @@ void Engine::applyLayers(const QJsonArray &layers, double fade, bool hideOthers)
             l->effects[k]->maskPreFx = e.value("mask_tap").toString() == "prefx";
         }
         // Visibility: shown at once and faded in from 0, or faded out then hidden
-        const bool visible = o.value("enable").toBool(true);
+        const bool visible = o.value("enable").toBool(l->enabled);
         const bool showing = visible && !l->enabled, hiding = !visible && l->enabled;
         if (showing && !(params.contains("opacity") && delayOf(delays, "opacity") > 0)) l->enabled = true;
         applyParams(*l, params, timing, easing, fade, *job, showing, hiding, chain, delays);
@@ -1163,7 +1208,7 @@ void Engine::applyLayers(const QJsonArray &layers, double fade, bool hideOthers)
             if (Parameter *p = l->parameter(QStringLiteral("opacity"))) fadeTo(*p, p->number(), 0.0);
         }
         // Which viewports it is drawn in: a snapshot can send a layer to another projector
-        job->routing = true;
+        job->routing = o.contains("viewports");
         job->routeFrom = l->viewportOpacity;
         job->routeTo.clear();
         const QJsonObject vo = o.value("viewports").toObject();
@@ -1187,7 +1232,7 @@ void Engine::applyLayers(const QJsonArray &layers, double fade, bool hideOthers)
         }
         // Its masks (none when the snapshot has none): the same shapes move there, others are set at once
         const std::vector<Mask> masksTo = masks::fromJson(o.value("masks").toArray());
-        if (masksTo != l->masks)
+        if (o.contains("masks") && masksTo != l->masks)
             fadeMasks(*job, *l, l->masks, masksTo, timeOf(timing, QStringLiteral("masks"), fade), easingOf(easing, QStringLiteral("masks")));
         stepJob(*job, *l);
         if (!job->done()) jobs.push_back(job);
@@ -1546,13 +1591,17 @@ QJsonObject Engine::snapshotToJson(const Snapshot &m, const QString &dir) const
             if (!t.isEmpty() && !dir.isEmpty()) x["relative_transition"] = QDir(dir).relativeFilePath(t);
             return x;
         };
-        o["source"] = rel(o.value("source").toObject());
+        if (o.contains("source"))
+            o["source"] = rel(o.value("source").toObject());
         QJsonArray fx;
         for (const QJsonValue &e : o.value("fx").toArray()) fx.append(rel(e.toObject()));
-        o["fx"] = fx;
+        if (o.contains("fx"))
+            o["fx"] = fx;
         layers.append(o);
     }
     QJsonObject out{{"id", QString::number(m.id)}, {"name", m.name}, {"fade", m.fade}, {"layers", layers}};
+    if (m.partial)
+        out["partial"] = true;
     if (!m.composition.isEmpty()) out["composition"] = m.composition;
     if (!m.interactions.isEmpty()) out["interactions"] = m.interactions;
     if (!m.fixtures.isEmpty()) out["fixtures"] = m.fixtures;
@@ -1572,6 +1621,7 @@ Engine::Snapshot Engine::snapshotFromJson(const QJsonObject &o, const QString &d
     m.id = o.value("id").toString().toULongLong(); // addSnapshot gives one when missing or taken
     m.name = o.value("name").toString();
     m.fade = std::clamp(o.value("fade").toDouble(1.0), 0.0, 600.0);
+    m.partial = o.value("partial").toBool(false);
     m.thumbnail.loadFromData(QByteArray::fromBase64(o.value("thumbnail").toString().toLatin1()), "PNG");
     m.composition = o.value("composition").toObject();
     m.interactions = o.value("interactions").toArray();
@@ -1589,10 +1639,12 @@ Engine::Snapshot Engine::snapshotFromJson(const QJsonObject &o, const QString &d
         };
         QJsonObject src = l.value("source").toObject();
         if (src.value("type").toString() != "none") src = resolve(src);
-        l["source"] = src;
+        if (l.contains("source"))
+            l["source"] = src;
         QJsonArray fx;
         for (const QJsonValue &e : l.value("fx").toArray()) fx.append(resolve(e.toObject()));
-        l["fx"] = fx;
+        if (l.contains("fx"))
+            l["fx"] = fx;
         m.layers.append(l);
     }
     return m;
@@ -1719,6 +1771,16 @@ void Engine::applyInteractions(const QJsonArray &states, double fade)
         for (const QJsonValue &v : states) {
             const QJsonObject o = v.toObject();
             if (!o.value("included").toBool(true)) continue;
+            if (o.contains("definition")) {
+                auto interaction = Interaction::fromJson(o.value("definition").toObject());
+                const auto id = o.value("id").toString().toULongLong();
+                interaction.id = id;
+                if (!setInteraction(interaction)) {
+                    auto definitions = interactions();
+                    definitions.push_back(interaction);
+                    setInteractions(definitions);
+                }
+            }
             applyInteractionValues(o.value("id").toString().toULongLong(), o.value("params").toObject(),
                                    o.value("timing").toObject(), o.value("easing").toObject(), fade,
                                    o.value("delay").toObject());
@@ -1919,6 +1981,8 @@ bool Engine::snapshotMatches(quint64 id, QString *reason) const
         if (isLocked(row)) continue; // the recall itself leaves this layer alone
         const QJsonObject live = layerJson(row);
         for (const char *field : {"source", "fx", "parent", "enable", "name", "viewports", "masks", "matte", "mask"}) {
+            if (!stored.contains(QLatin1String(field)))
+                continue;
             QJsonValue a = live.value(QLatin1String(field)), b = stored.value(QLatin1String(field));
             if (QLatin1String(field) == QLatin1String("source")) {
                 auto clean = [](QJsonValue value) { auto o = value.toObject(); o.remove("relative_path"); return QJsonValue(o); };
@@ -1933,7 +1997,8 @@ bool Engine::snapshotMatches(quint64 id, QString *reason) const
         }
         auto a = live.value("mesh").toObject(), b = stored.value("mesh").toObject();
         a.remove("edit"); b.remove("edit");
-        if (a != b) return mismatch(QStringLiteral("Mesh"));
+        if (stored.contains("mesh") && a != b)
+            return mismatch(QStringLiteral("Mesh"));
         auto definitions = [](const QJsonArray &animations) {
             QJsonArray result;
             for (const auto &value : animations) {
@@ -1944,14 +2009,15 @@ bool Engine::snapshotMatches(quint64 id, QString *reason) const
             }
             return result;
         };
-        if (definitions(live.value("anims").toArray()) != definitions(stored.value("anims").toArray()))
+        if (stored.contains("anims") &&
+            definitions(live.value("anims").toArray()) != definitions(stored.value("anims").toArray()))
             return mismatch(QStringLiteral("Animation settings"));
         const QJsonObject liveValues = live.value("params").toObject();
         if (!paramsMatch(layerId, stored.value("params").toObject(), QString(), &liveValues)) return false;
     }
     for (int row = 0; row < int(m_layers.size()); ++row) {
         const auto &layer = m_layers[size_t(row)];
-        if (!layer->isViewport && !named.contains(layer->id) && !isLocked(row) && layer->enabled)
+        if (!snapshot.partial && !layer->isViewport && !named.contains(layer->id) && !isLocked(row) && layer->enabled)
             return mismatch(QStringLiteral("Additional visible layer"));
     }
     if (!snapshot.composition.isEmpty() && snapshot.composition.value("included").toBool(true)) {
@@ -1970,7 +2036,8 @@ bool Engine::snapshotMatches(quint64 id, QString *reason) const
         if (!paramsMatch(0, stored.value("params").toObject(), QStringLiteral("interaction/%1/").arg(interaction))) return false;
     }
     for (const auto &interaction : m_interactions)
-        if (interaction.enabled && !interactionIds.contains(interaction.id)) return mismatch(QStringLiteral("Additional enabled interaction"));
+        if (!snapshot.partial && interaction.enabled && !interactionIds.contains(interaction.id))
+            return mismatch(QStringLiteral("Additional enabled interaction"));
     for (const auto &value : snapshot.fixtures) {
         const auto stored = value.toObject();
         if (!stored.value("included").toBool(true)) continue;
@@ -1995,4 +2062,17 @@ void Engine::cancelParameterRecall(quint64 layer, const QString &path)
         m_interactionFades.erase(std::remove_if(m_interactionFades.begin(), m_interactionFades.end(),
             [&](const InteractionFade &fade) { return fade.path == path; }), m_interactionFades.end());
     }
+}
+
+void Engine::setSnapshots(const std::vector<Snapshot> &all, const std::vector<SnapshotNode> &tree)
+{
+    {
+        Lock lock(&m_mutex);
+        m_snapshots = all;
+        for (const auto &snapshot : all)
+            m_nextSnapshotId = std::max(m_nextSnapshotId, snapshot.id + 1);
+        m_snapshotTree = tree;
+    }
+    setSnapshotTree(tree);
+    emit snapshotsChanged();
 }

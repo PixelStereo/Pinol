@@ -7,12 +7,16 @@
 
 #include <QApplication>
 #include <QCheckBox>
+#include <QClipboard>
 #include <QComboBox>
+#include <QDialog>
+#include <QDialogButtonBox>
 #include <QDragEnterEvent>
 #include <QDropEvent>
 #include <QHBoxLayout>
 #include <QHeaderView>
 #include <QInputDialog>
+#include <QJsonDocument>
 #include <QLabel>
 #include <QLineEdit>
 #include <QListWidget>
@@ -20,13 +24,17 @@
 #include <QMimeData>
 #include <QPainter>
 #include <QPainterPath>
-#include <QStyledItemDelegate>
-#include <QTimer>
 #include <QPushButton>
-#include <QSignalBlocker>
 #include <QSet>
+#include <QShortcut>
+#include <QSignalBlocker>
+#include <QSpinBox>
+#include <QStyledItemDelegate>
 #include <QTableWidget>
+#include <QTimer>
 #include <QToolButton>
+#include <QUndoCommand>
+#include <QUndoStack>
 #include <QVBoxLayout>
 #include <cmath>
 
@@ -69,6 +77,12 @@ static QString timelineName(Engine *e, quint64 id)
 // What a step does: its snapshot (with its number), or its timeline and the action on it
 static QString stepTarget(Engine *e, const Sequencer::Step &st, bool numbered = true)
 {
+    if (!st.actions.empty()) {
+        QStringList names;
+        for (const auto &action : st.actions)
+            names << stepTarget(e, action, false);
+        return QStringLiteral("Group · %1 actions: %2").arg(st.actions.size()).arg(names.join(QStringLiteral(" + ")));
+    }
     if (st.sequence) {
         const int index = e->sequencer().indexOfSequence(st.sequence);
         return index < 0 ? QStringLiteral("(sequence gone)") : QStringLiteral("▶ Sequence · %1").arg(e->sequencer().sequence(index).name);
@@ -738,8 +752,8 @@ private:
     SequenceWindow *m_w;
 };
 
-SequenceWindow::SequenceWindow(Engine *engine, QWidget *parent)
-    : QWidget(parent, Qt::Tool | Qt::WindowStaysOnTopHint), m_engine(engine)
+SequenceWindow::SequenceWindow(Engine *engine, QWidget *parent, QUndoStack *undo)
+    : QWidget(parent, Qt::Tool | Qt::WindowStaysOnTopHint), m_undo(undo), m_engine(engine)
 {
     setWindowTitle(QStringLiteral("Sequences"));
     resize(1020, 460);
@@ -778,6 +792,22 @@ SequenceWindow::SequenceWindow(Engine *engine, QWidget *parent)
                                        "GO when the clock gets there; after a jump, the last step before it plays."));
     m_clock->setMenu(new QMenu(m_clock));
     left->addWidget(m_clock);
+    m_editMode = new QCheckBox(QStringLiteral("Edit mode · mute TC / auto-follow"));
+    m_editMode->setObjectName(QStringLiteral("sequenceEditMode"));
+    m_editMode->setToolTip(
+        QStringLiteral("Stops this sequence's pending waits. Incoming timecode is ignored; manual GO auditions only "
+                       "one cue, without pre-wait, tracking or automatic chaining. The source clock keeps running. "
+                       "Unmuting does not replay cues crossed while muted."));
+    left->addWidget(m_editMode);
+    connect(m_editMode, &QCheckBox::toggled, this, [this](bool on) {
+        if (m_filling)
+            return;
+        const int index = m_engine->sequencer().current();
+        auto sequence = m_engine->sequencer().sequence(index);
+        sequence.editMode = on;
+        applySequence(index, sequence, QStringLiteral("Sequence Edit Mode"));
+        emit edited();
+    });
     h->addLayout(left, 1);
 
     // Steps
@@ -872,7 +902,7 @@ SequenceWindow::SequenceWindow(Engine *engine, QWidget *parent)
         Sequencer::Sequence s = m_engine->sequencer().sequence(i);
         if (s.name == it->text()) return;
         s.name = it->text();
-        m_engine->sequencer().setSequence(i, s);
+        applySequence(i, s);
         emit edited();
     });
     connect(m_add, &QPushButton::clicked, this, [this] {
@@ -901,7 +931,7 @@ SequenceWindow::SequenceWindow(Engine *engine, QWidget *parent)
             Sequencer::Sequence s = m_engine->sequencer().sequence(current());
             s.clockLayer = layer;
             s.clockParam = param;
-            m_engine->sequencer().setSequence(current(), s);
+            applySequence(current(), s);
             emit edited();
         };
         menu->addAction(QStringLiteral("None"), this, [choose] { choose(0, QString()); });
@@ -925,14 +955,14 @@ SequenceWindow::SequenceWindow(Engine *engine, QWidget *parent)
         if (m_filling || current() < 0) return;
         Sequencer::Sequence s = m_engine->sequencer().sequence(current());
         s.tracking = on;
-        m_engine->sequencer().setSequence(current(), s);
+        applySequence(current(), s);
         emit edited();
     });
     connect(m_loop, &QCheckBox::toggled, this, [this, current](bool on) {
         if (m_filling || current() < 0) return;
         Sequencer::Sequence s = m_engine->sequencer().sequence(current());
         s.loop = on;
-        m_engine->sequencer().setSequence(current(), s);
+        applySequence(current(), s);
         emit edited();
     });
     connect(m_steps, &QTableWidget::itemChanged, this, [this, current](QTableWidgetItem *it) {
@@ -960,7 +990,7 @@ SequenceWindow::SequenceWindow(Engine *engine, QWidget *parent)
         }
         default: return;
         }
-        m_engine->sequencer().setSequence(current(), s);
+        applySequence(current(), s);
         emit edited();
     });
     connect(m_steps, &QTableWidget::cellDoubleClicked, this, [this](int row, int col) {
@@ -978,7 +1008,8 @@ SequenceWindow::SequenceWindow(Engine *engine, QWidget *parent)
     connect(m_steps, &QTableWidget::customContextMenuRequested, this, [this](const QPoint &pos) {
         const int row = m_steps->rowAt(pos.y());
         QMenu menu;
-        if (row >= 0) m_steps->setCurrentCell(row, ColSnapshot);
+        if (row >= 0 && !m_steps->selectionModel()->isRowSelected(row, QModelIndex()))
+            m_steps->setCurrentCell(row, ColSnapshot);
         fillStepMenu(&menu, row);
         menu.exec(m_steps->viewport()->mapToGlobal(pos));
     });
@@ -987,6 +1018,37 @@ SequenceWindow::SequenceWindow(Engine *engine, QWidget *parent)
         addStep(r >= 0 ? r + 1 : -1, 0);
     });
     connect(m_stepDel, &QPushButton::clicked, this, &SequenceWindow::removeSteps);
+    auto *duplicateStep = new QPushButton(QStringLiteral("Duplicate"));
+    duplicateStep->setObjectName("sequenceDuplicateSteps");
+    stb->addWidget(duplicateStep);
+    connect(duplicateStep, &QPushButton::clicked, this, &SequenceWindow::duplicateSteps);
+    auto *group = new QPushButton(QStringLiteral("Group actions"));
+    group->setObjectName("sequenceGroupSteps");
+    stb->addWidget(group);
+    connect(group, &QPushButton::clicked, this, &SequenceWindow::groupSteps);
+    for (auto entry : {std::pair<QKeySequence, int>{QKeySequence(QKeySequence::Copy), 0},
+                       {QKeySequence(QKeySequence::Cut), 1},
+                       {QKeySequence(QKeySequence::Paste), 2},
+                       {QKeySequence(Qt::CTRL | Qt::Key_D), 3},
+                       {QKeySequence(QKeySequence::Delete), 4},
+                       {QKeySequence(Qt::Key_Backspace), 4},
+                       {QKeySequence(Qt::Key_Insert), 5}}) {
+        auto *shortcut = new QShortcut(entry.first, m_steps);
+        shortcut->setContext(Qt::WidgetShortcut);
+        connect(shortcut, &QShortcut::activated, this, [this, action = entry.second] {
+            if (action < 2)
+                copySteps(action == 1);
+            else if (action == 2)
+                pasteSteps();
+            else if (action == 3)
+                duplicateSteps();
+            else if (action == 4)
+                removeSteps();
+            else
+                addStep(std::max(0, m_steps->currentRow()), 0);
+        });
+    }
+
     connect(m_up, &QPushButton::clicked, this, [this] { moveStep(-1); });
     connect(m_down, &QPushButton::clicked, this, [this] { moveStep(+1); });
     connect(&m_engine->sequencer(), &Sequencer::changed, this, &SequenceWindow::refresh);
@@ -1051,7 +1113,22 @@ void SequenceWindow::fillStepMenu(QMenu *menu, int row)
     const Sequencer::Sequence cs = m_engine->sequencer().sequence(m_engine->sequencer().current());
     if (row >= 0 && row < int(cs.steps.size()) && cs.steps[size_t(row)].timeline)
         fillActionMenu(menu->addMenu(QStringLiteral("Timeline action")), row);
+    menu->addSeparator();
+    menu->addAction(QStringLiteral("Insert empty step before"), this, [this, row] { addStep(row < 0 ? -1 : row, 0); });
+    menu->addAction(QStringLiteral("Insert empty step after"), this,
+                    [this, row] { addStep(row < 0 ? -1 : row + 1, 0); });
+    menu->addAction(QStringLiteral("Paste steps after"), this, &SequenceWindow::pasteSteps)
+        ->setEnabled(QApplication::clipboard()->mimeData()->hasFormat("application/x-nyxmap-sequence-steps"));
     if (row >= 0) {
+        menu->addAction(QStringLiteral("Copy steps"), this, [this] { copySteps(); });
+        menu->addAction(QStringLiteral("Cut steps"), this, [this] { copySteps(true); });
+        menu->addAction(QStringLiteral("Duplicate steps"), this, &SequenceWindow::duplicateSteps);
+        menu->addAction(QStringLiteral("Group selected actions"), this, &SequenceWindow::groupSteps)
+            ->setEnabled(selectedSteps().size() > 1);
+        menu->addAction(QStringLiteral("Edit action group…"), this, [this, row] { editActionGroup(row); });
+        menu->addAction(QStringLiteral("Ungroup actions"), this, &SequenceWindow::ungroupStep)
+            ->setEnabled(row < int(cs.steps.size()) && !cs.steps[size_t(row)].actions.empty());
+        menu->addSeparator();
         menu->addAction(QStringLiteral("Play this step"), this, [this, row] { emit goToRequested(row); });
         menu->addAction(QStringLiteral("Delete"), this, &SequenceWindow::removeSteps);
     }
@@ -1070,7 +1147,7 @@ void SequenceWindow::fillActionMenu(QMenu *menu, int row)
         Sequencer::Sequence q = m_engine->sequencer().sequence(c);
         if (row >= int(q.steps.size())) return;
         f(q.steps[size_t(row)]);
-        m_engine->sequencer().setSequence(c, q);
+        applySequence(c, q);
         emit edited();
     };
     for (A a : {A::Play, A::Pause, A::Stop, A::Rewind}) {
@@ -1200,7 +1277,9 @@ void SequenceWindow::refresh()
                     ? QStringLiteral("%1 › %2").arg(owner, info.label.section(QStringLiteral(" › "), -1))
                     : QStringLiteral("%1 (gone)").arg(s.clockParam);
     }
-    m_clock->setText(QStringLiteral("Timecode: %1").arg(clock));
+    m_clock->setText(QStringLiteral("Timecode: %1%2").arg(clock, s.editMode ? QStringLiteral(" · MUTED") : QString()));
+    m_editMode->setChecked(s.editMode);
+    m_editMode->setEnabled(cur >= 0);
     for (QWidget *w : std::initializer_list<QWidget *>{m_dup, m_del, m_loop, m_tracking, m_clock, m_stepDel, m_up, m_down}) // steps: a first one makes a sequence
         w->setEnabled(cur >= 0);
     const int keep = m_steps->currentRow();
@@ -1279,7 +1358,7 @@ void SequenceWindow::addStep(int at, quint64 snapshot, quint64 timeline, quint64
     s.steps.insert(s.steps.begin() + at, st);
     // The step played keeps being the same one
     const int pos = m_engine->sequencer().position();
-    m_engine->sequencer().setSequence(cur, s);
+    applySequence(cur, s);
     if (pos >= at) m_engine->sequencer().setPosition(pos + 1);
     m_steps->setCurrentCell(at, ColSnapshot);
     emit edited();
@@ -1290,10 +1369,11 @@ void SequenceWindow::setStepSnapshot(int step, quint64 snapshot)
     const int cur = m_engine->sequencer().current();
     Sequencer::Sequence s = m_engine->sequencer().sequence(cur);
     if (step < 0 || step >= int(s.steps.size())) return;
+    s.steps[size_t(step)].actions.clear();
     s.steps[size_t(step)].snapshot = snapshot;
     s.steps[size_t(step)].timeline = 0;
     s.steps[size_t(step)].preset = s.steps[size_t(step)].sequence = 0;
-    m_engine->sequencer().setSequence(cur, s);
+    applySequence(cur, s);
     emit edited();
 }
 
@@ -1303,11 +1383,12 @@ void SequenceWindow::setStepTimeline(int step, quint64 timeline)
     Sequencer::Sequence s = m_engine->sequencer().sequence(cur);
     if (step < 0 || step >= int(s.steps.size())) return;
     Sequencer::Step &st = s.steps[size_t(step)];
+    st.actions.clear();
     if (!st.timeline) st.action = Engine::AnimAction::Play; // a step that recalled a snapshot: Play
     st.timeline = timeline;
     st.snapshot = 0;
     st.preset = st.sequence = 0;
-    m_engine->sequencer().setSequence(cur, s);
+    applySequence(cur, s);
     emit edited();
 }
 
@@ -1317,10 +1398,11 @@ void SequenceWindow::setStepLibraryTarget(int step, quint64 preset, quint64 sequ
     auto s = m_engine->sequencer().sequence(cur);
     if (step < 0 || step >= int(s.steps.size())) return;
     auto &target = s.steps[size_t(step)];
+    target.actions.clear();
     target.snapshot = target.timeline = 0;
     target.preset = preset;
     target.sequence = sequence;
-    m_engine->sequencer().setSequence(cur, s);
+    applySequence(cur, s);
     emit edited();
 }
 
@@ -1340,7 +1422,7 @@ void SequenceWindow::removeSteps()
         if (pos == r) pos = r - 1; // the step played is gone: as if the one before was
         else if (pos > r) --pos;
     }
-    m_engine->sequencer().setSequence(cur, s);
+    applySequence(cur, s);
     m_engine->sequencer().setPosition(pos);
     emit edited();
 }
@@ -1355,7 +1437,7 @@ void SequenceWindow::moveStep(int delta)
     int pos = m_engine->sequencer().position();
     if (pos == r) pos = to;
     else if (pos == to) pos = r;
-    m_engine->sequencer().setSequence(cur, s);
+    applySequence(cur, s);
     m_engine->sequencer().setPosition(pos);
     m_steps->setCurrentCell(to, ColSnapshot);
     emit edited();
@@ -1419,4 +1501,398 @@ void SequenceWindow::refreshTransport()
         }
     }
     pollRuns();
+}
+
+namespace {
+constexpr auto kStepsMime = "application/x-nyxmap-sequence-steps";
+class SequenceDefinitionEdit : public QUndoCommand {
+    Engine *engine;
+    quint64 id;
+    Sequencer::Sequence before, after;
+    bool first = true;
+
+public:
+    SequenceDefinitionEdit(Engine *e, quint64 owner, Sequencer::Sequence b, Sequencer::Sequence a, const QString &text)
+        : engine(e), id(owner), before(std::move(b)), after(std::move(a))
+    {
+        setText(text);
+    }
+    void undo() override { engine->sequencer().setSequence(engine->sequencer().indexOfSequence(id), before); }
+    void redo() override
+    {
+        if (first)
+            first = false;
+        else
+            engine->sequencer().setSequence(engine->sequencer().indexOfSequence(id), after);
+    }
+};
+} // namespace
+void SequenceWindow::applySequence(int index, const Sequencer::Sequence &sequence, const QString &text)
+{
+    auto &sequencer = m_engine->sequencer();
+    const auto id = sequencer.sequenceId(index);
+    if (!id)
+        return;
+    const auto before = sequencer.sequence(index);
+    sequencer.setSequence(index, sequence);
+    if (m_undo)
+        m_undo->push(new SequenceDefinitionEdit(m_engine, id, before, sequencer.sequence(index), text));
+}
+QList<int> SequenceWindow::selectedSteps() const
+{
+    QList<int> rows;
+    for (const auto &index : m_steps->selectionModel()->selectedRows())
+        rows << index.row();
+    if (rows.isEmpty() && m_steps->currentRow() >= 0)
+        rows << m_steps->currentRow();
+    std::sort(rows.begin(), rows.end());
+    return rows;
+}
+void SequenceWindow::copySteps(bool cut)
+{
+    const auto sequence = m_engine->sequencer().sequence(m_engine->sequencer().current());
+    QJsonArray steps;
+    for (int row : selectedSteps())
+        if (row >= 0 && row < int(sequence.steps.size()))
+            steps.append(Sequencer::stepToJson(sequence.steps[size_t(row)]));
+    if (steps.isEmpty())
+        return;
+    auto *mime = new QMimeData;
+    const auto bytes = QJsonDocument(QJsonObject{{"version", 1}, {"steps", steps}}).toJson(QJsonDocument::Compact);
+    mime->setData(kStepsMime, bytes);
+    mime->setText(QString::fromUtf8(bytes));
+    QApplication::clipboard()->setMimeData(mime);
+    if (cut)
+        removeSteps();
+}
+void SequenceWindow::pasteSteps()
+{
+    const auto bytes = QApplication::clipboard()->mimeData()->data(kStepsMime);
+    if (bytes.size() > 4 * 1024 * 1024)
+        return;
+    const auto object = QJsonDocument::fromJson(bytes).object();
+    if (object.value("version").toInt() != 1 || !object.value("steps").isArray())
+        return;
+    const auto steps = object.value("steps").toArray();
+    if (steps.isEmpty() || steps.size() > 1024)
+        return;
+    const int index = m_engine->sequencer().current();
+    if (index < 0)
+        return;
+    auto sequence = m_engine->sequencer().sequence(index);
+    const int at = std::clamp(m_steps->currentRow() + 1, 0, int(sequence.steps.size()));
+    std::vector<Sequencer::Step> pasted;
+    for (const auto &value : steps) {
+        if (!value.isObject())
+            return;
+        pasted.push_back(Sequencer::stepFromJson(value.toObject()));
+    }
+    sequence.steps.insert(sequence.steps.begin() + at, pasted.begin(), pasted.end());
+    applySequence(index, sequence, QStringLiteral("Paste Sequence Steps"));
+    m_steps->setCurrentCell(at, ColSnapshot);
+    emit edited();
+}
+void SequenceWindow::duplicateSteps()
+{
+    const int index = m_engine->sequencer().current();
+    if (index < 0)
+        return;
+    auto sequence = m_engine->sequencer().sequence(index);
+    const auto rows = selectedSteps();
+    if (rows.empty())
+        return;
+    std::vector<Sequencer::Step> copies;
+    for (int row : rows)
+        if (row >= 0 && row < int(sequence.steps.size())) {
+            auto copy = sequence.steps[size_t(row)];
+            copy.runtimeId = 0;
+            copy.at = -1;
+            copies.push_back(copy);
+        }
+    const int at = std::min(rows.back() + 1, int(sequence.steps.size()));
+    sequence.steps.insert(sequence.steps.begin() + at, copies.begin(), copies.end());
+    applySequence(index, sequence, QStringLiteral("Duplicate Sequence Steps"));
+    m_steps->setCurrentCell(at, ColSnapshot);
+    emit edited();
+}
+void SequenceWindow::groupSteps()
+{
+    const int index = m_engine->sequencer().current();
+    if (index < 0)
+        return;
+    auto sequence = m_engine->sequencer().sequence(index);
+    auto rows = selectedSteps();
+    if (rows.empty())
+        return;
+    if (rows.size() == 1) {
+        editActionGroup(rows.front());
+        return;
+    }
+    // A group replaces a contiguous cue range; silently moving unrelated cues would alter the show.
+    if (rows.back() - rows.front() + 1 != rows.size())
+        return;
+    auto group = sequence.steps[size_t(rows.front())];
+    group.snapshot = group.timeline = group.preset = group.sequence = 0;
+    group.actions.clear();
+    for (int row : rows) {
+        auto step = sequence.steps[size_t(row)];
+        if (step.actions.empty())
+            group.actions.push_back(step);
+        else
+            group.actions.insert(group.actions.end(), step.actions.begin(), step.actions.end());
+    }
+    if (group.actions.size() > 64)
+        return;
+    for (auto &action : group.actions) {
+        action.runtimeId = 0;
+        action.preWait = action.postWait = 0;
+        action.next = Sequencer::StepContinue::Wait;
+        action.at = -1;
+    }
+    group.postWait = sequence.steps[size_t(rows.back())].postWait;
+    group.next = sequence.steps[size_t(rows.back())].next;
+    sequence.steps.erase(sequence.steps.begin() + rows.front(), sequence.steps.begin() + rows.back() + 1);
+    sequence.steps.insert(sequence.steps.begin() + rows.front(), group);
+    applySequence(index, sequence, QStringLiteral("Group Sequence Actions"));
+    m_steps->setCurrentCell(rows.front(), ColSnapshot);
+    emit edited();
+}
+void SequenceWindow::ungroupStep()
+{
+    const int index = m_engine->sequencer().current(), row = m_steps->currentRow();
+    auto sequence = m_engine->sequencer().sequence(index);
+    if (row < 0 || row >= int(sequence.steps.size()))
+        return;
+    const auto group = sequence.steps[size_t(row)];
+    if (group.actions.empty())
+        return;
+    auto actions = group.actions;
+    for (auto &action : actions) {
+        action.runtimeId = 0;
+        action.next = Sequencer::StepContinue::Follow;
+    }
+    actions.front().runtimeId = group.runtimeId;
+    actions.front().preWait = group.preWait;
+    actions.front().at = group.at;
+    actions.front().text = group.text;
+    actions.front().description = group.description;
+    actions.back().postWait = group.postWait;
+    actions.back().next = group.next;
+    sequence.steps.erase(sequence.steps.begin() + row);
+    sequence.steps.insert(sequence.steps.begin() + row, actions.begin(), actions.end());
+    applySequence(index, sequence, QStringLiteral("Ungroup Sequence Actions"));
+    m_steps->setCurrentCell(row, ColSnapshot);
+    emit edited();
+}
+void SequenceWindow::editActionGroup(int row)
+{
+    const int index = m_engine->sequencer().current();
+    auto sequence = m_engine->sequencer().sequence(index);
+    if (row < 0 || row >= int(sequence.steps.size()))
+        return;
+    const auto ownerId = m_engine->sequencer().sequenceId(index);
+    auto actions = sequence.steps[size_t(row)].actions;
+    if (actions.empty()) {
+        auto action = sequence.steps[size_t(row)];
+        if (action.snapshot || action.timeline || action.preset || action.sequence)
+            actions.push_back(action);
+    }
+    QDialog dialog(this);
+    dialog.setWindowTitle(QStringLiteral("Cue action group"));
+    dialog.resize(660, 420);
+    auto *layout = new QVBoxLayout(&dialog);
+    auto *help =
+        new QLabel(QStringLiteral("Actions start in this order on the same GO, after the cue's pre-wait. Auto-follow "
+                                  "waits for the longest action. Conflicting targets are resolved in list order."));
+    help->setWordWrap(true);
+    layout->addWidget(help);
+    auto *list = new QListWidget;
+    list->setObjectName("cueGroupActions");
+    layout->addWidget(list, 1);
+    auto *settings = new QHBoxLayout;
+    auto *actionType = new QComboBox;
+    actionType->addItems({"Play", "Pause", "Stop", "Rewind", "Seek", "Loop mode", "Speed"});
+    auto *amount = new NumberBox;
+    amount->setRange(0, 3600);
+    amount->setDecimals(3);
+    auto *loopMode = new QComboBox;
+    loopMode->addItems({"Once", "Loop", "Ping-pong"});
+    auto *repeat = new QSpinBox;
+    repeat->setRange(0, 100000);
+    repeat->setPrefix("Repeat ");
+    settings->addWidget(actionType);
+    settings->addWidget(amount);
+    settings->addWidget(loopMode);
+    settings->addWidget(repeat);
+    layout->addLayout(settings);
+    auto *toolbar = new QHBoxLayout;
+    layout->addLayout(toolbar);
+    auto *add = new QToolButton;
+    add->setText("Add action");
+    add->setPopupMode(QToolButton::InstantPopup);
+    auto *menu = new QMenu(add);
+    add->setMenu(menu);
+    toolbar->addWidget(add);
+    auto *remove = new QPushButton("Remove"), *duplicate = new QPushButton("Duplicate"), *up = new QPushButton("↑"),
+         *down = new QPushButton("↓");
+    for (auto *button : {remove, duplicate, up, down})
+        toolbar->addWidget(button);
+    auto *buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+    layout->addWidget(buttons);
+    connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+    connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+    bool filling = false;
+    auto refresh = [&](int selected) {
+        filling = true;
+        list->clear();
+        for (const auto &action : actions)
+            list->addItem(stepTarget(m_engine, action, false));
+        filling = false;
+        list->setCurrentRow(actions.empty() ? -1 : std::clamp(selected, 0, int(actions.size()) - 1));
+        buttons->button(QDialogButtonBox::Ok)->setEnabled(!actions.empty());
+        add->setEnabled(actions.size() < 64);
+    };
+    auto append = [&](Sequencer::Step action) {
+        if (actions.size() >= 64)
+            return;
+        action.runtimeId = 0;
+        action.preWait = action.postWait = 0;
+        action.next = Sequencer::StepContinue::Wait;
+        action.at = -1;
+        action.text.clear();
+        action.description.clear();
+        action.actions.clear();
+        actions.push_back(action);
+        refresh(int(actions.size()) - 1);
+    };
+    auto *snapshots = menu->addMenu("Snapshot");
+    for (int i = 0; i < m_engine->snapshotCount(); ++i) {
+        const auto snapshot = m_engine->snapshot(i);
+        snapshots->addAction(snapshot.name, &dialog, [&, id = snapshot.id] {
+            Sequencer::Step action;
+            action.snapshot = id;
+            append(action);
+        });
+    }
+    auto *presets = menu->addMenu("Preset");
+    for (const auto &preset : m_engine->presets())
+        presets->addAction(preset.name, &dialog, [&, id = preset.id] {
+            Sequencer::Step action;
+            action.preset = id;
+            append(action);
+        });
+    auto *timelines = menu->addMenu("Timeline");
+    for (int i = 0; i < m_engine->animationCount(); ++i) {
+        const auto timeline = m_engine->animation(i);
+        timelines->addAction(timeline.name, &dialog, [&, id = timeline.id] {
+            Sequencer::Step action;
+            action.timeline = id;
+            append(action);
+        });
+    }
+    auto *sequences = menu->addMenu("Sequence");
+    for (int i = 0; i < m_engine->sequencer().count(); ++i)
+        if (i != index) {
+            const auto name = m_engine->sequencer().sequence(i).name;
+            const auto id = m_engine->sequencer().sequenceId(i);
+            sequences->addAction(name, &dialog, [&, id] {
+                Sequencer::Step action;
+                action.sequence = id;
+                append(action);
+            });
+        }
+    connect(list, &QListWidget::currentRowChanged, &dialog, [&](int selected) {
+        if (filling)
+            return;
+        filling = true;
+        const bool valid = selected >= 0 && selected < int(actions.size()),
+                   timeline = valid && actions[size_t(selected)].timeline;
+        actionType->setEnabled(timeline);
+        amount->setEnabled(timeline && (actions[size_t(selected)].action == AnimAction::Seek ||
+                                        actions[size_t(selected)].action == AnimAction::Speed));
+        loopMode->setEnabled(timeline && actions[size_t(selected)].action == AnimAction::LoopMode);
+        repeat->setEnabled(loopMode->isEnabled());
+        if (valid) {
+            const auto &action = actions[size_t(selected)];
+            actionType->setCurrentIndex(int(action.action));
+            amount->setRange(0, action.action == AnimAction::Speed ? 10 : 3600);
+            amount->setValue(action.action == AnimAction::Speed ? action.speed : action.seekTime);
+            loopMode->setCurrentIndex(int(action.loop));
+            repeat->setValue(action.repeat);
+        }
+        filling = false;
+    });
+    auto changed = [&] {
+        if (filling)
+            return;
+        const int selected = list->currentRow();
+        if (selected < 0 || selected >= int(actions.size()))
+            return;
+        auto &action = actions[size_t(selected)];
+        action.action = AnimAction(actionType->currentIndex());
+        if (action.action == AnimAction::Speed)
+            action.speed = std::clamp(amount->value(), 0., 10.);
+        else
+            action.seekTime = amount->value();
+        action.loop = AnimLoop(loopMode->currentIndex());
+        action.repeat = repeat->value();
+        list->item(selected)->setText(stepTarget(m_engine, action, false));
+    };
+    connect(actionType, qOverload<int>(&QComboBox::activated), &dialog, [&](int type) {
+        const int selected = list->currentRow();
+        if (selected < 0 || selected >= int(actions.size()))
+            return;
+        auto &action = actions[size_t(selected)];
+        action.action = AnimAction(type);
+        filling = true;
+        amount->setRange(0, action.action == AnimAction::Speed ? 10 : 3600);
+        amount->setValue(action.action == AnimAction::Speed ? action.speed : action.seekTime);
+        amount->setEnabled(action.timeline &&
+                           (action.action == AnimAction::Seek || action.action == AnimAction::Speed));
+        loopMode->setEnabled(action.timeline && action.action == AnimAction::LoopMode);
+        repeat->setEnabled(loopMode->isEnabled());
+        filling = false;
+        changed();
+    });
+    connect(amount, qOverload<double>(&QDoubleSpinBox::valueChanged), &dialog, [&](double) { changed(); });
+    connect(loopMode, qOverload<int>(&QComboBox::activated), &dialog, [&](int) { changed(); });
+    connect(repeat, qOverload<int>(&QSpinBox::valueChanged), &dialog, [&](int) { changed(); });
+    connect(remove, &QPushButton::clicked, &dialog, [&] {
+        const int selected = list->currentRow();
+        if (selected >= 0) {
+            actions.erase(actions.begin() + selected);
+            refresh(std::min(selected, int(actions.size()) - 1));
+        }
+    });
+    connect(duplicate, &QPushButton::clicked, &dialog, [&] {
+        const int selected = list->currentRow();
+        if (selected >= 0 && actions.size() < 64) {
+            auto copy = actions[size_t(selected)];
+            actions.insert(actions.begin() + selected + 1, copy);
+            refresh(selected + 1);
+        }
+    });
+    for (auto pair : {std::pair<QPushButton *, int>{up, -1}, {down, 1}})
+        connect(pair.first, &QPushButton::clicked, &dialog, [&, delta = pair.second] {
+            const int selected = list->currentRow(), target = selected + delta;
+            if (selected >= 0 && target >= 0 && target < int(actions.size())) {
+                std::swap(actions[size_t(selected)], actions[size_t(target)]);
+                refresh(target);
+            }
+        });
+    refresh(0);
+    if (dialog.exec() != QDialog::Accepted)
+        return;
+    const auto id = ownerId;
+    const auto runtime = sequence.steps[size_t(row)].runtimeId;
+    const int current = m_engine->sequencer().indexOfSequence(id);
+    sequence = m_engine->sequencer().sequence(current);
+    auto found = std::find_if(sequence.steps.begin(), sequence.steps.end(),
+                              [&](const auto &step) { return step.runtimeId == runtime; });
+    if (found == sequence.steps.end())
+        return;
+    found->snapshot = found->timeline = found->preset = found->sequence = 0;
+    found->actions = std::move(actions);
+    applySequence(current, sequence, QStringLiteral("Edit Cue Action Group"));
+    emit edited();
 }

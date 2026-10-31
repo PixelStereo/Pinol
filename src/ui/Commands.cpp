@@ -588,4 +588,48 @@ void editFixtures(QUndoStack *undo, Engine *e, const QString &text, const std::f
     else e->setFixturePatch(after);
 }
 
+namespace {
+struct SnapshotLibraryState {
+    std::vector<Engine::Snapshot> snapshots;
+    std::vector<Engine::SnapshotNode> tree;
+    explicit SnapshotLibraryState(Engine *engine) : tree(engine->snapshotTree())
+    {
+        for (int i = 0; i < engine->snapshotCount(); ++i)
+            snapshots.push_back(engine->snapshot(i));
+    }
+    void restore(Engine *engine) const { engine->setSnapshots(snapshots, tree); }
+};
+class SnapshotLibraryEdit : public QUndoCommand {
+    Engine *engine;
+    SnapshotLibraryState before, after;
+    bool first = true;
+
+public:
+    SnapshotLibraryEdit(Engine *e, SnapshotLibraryState b, SnapshotLibraryState a, const QString &text)
+        : engine(e), before(std::move(b)), after(std::move(a))
+    {
+        setText(text);
+    }
+    void undo() override { before.restore(engine); }
+    void redo() override
+    {
+        if (first)
+            first = false;
+        else
+            after.restore(engine);
+    }
+};
+
+} // namespace
+void editSnapshotLibrary(QUndoStack *undo, Engine *engine, const QString &text, const std::function<void()> &edit)
+{
+    if (!undo) {
+        edit();
+        return;
+    }
+    SnapshotLibraryState before(engine);
+    edit();
+    undo->push(new SnapshotLibraryEdit(engine, std::move(before), SnapshotLibraryState(engine), text));
+}
+
 } // namespace cmd

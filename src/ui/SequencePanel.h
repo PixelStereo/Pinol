@@ -105,7 +105,7 @@ class SequenceWindow : public QWidget
     Q_OBJECT
 public:
     QString proposedTimecode(int row) const; // what an empty Timecode cell offers when edited
-    explicit SequenceWindow(Engine *engine, QWidget *parent = nullptr);
+    explicit SequenceWindow(Engine *engine, QWidget *parent = nullptr, class QUndoStack *undo = nullptr);
     void refresh();
     void setModified(bool on); // something changed since the current step was played
     void fillStepMenu(QMenu *menu, int row); // row -1: append a new step with the chosen target
@@ -128,6 +128,17 @@ private:
     void setStepLibraryTarget(int step, quint64 preset, quint64 sequence);
     void fillActionMenu(QMenu *menu, int row);
     void removeSteps();
+    void applySequence(int index, const Sequencer::Sequence &sequence,
+                       const QString &text = QStringLiteral("Edit Sequence"));
+    QList<int> selectedSteps() const;
+    void copySteps(bool cut = false);
+    void pasteSteps();
+    void duplicateSteps();
+    void groupSteps();
+    void ungroupStep();
+    void editActionGroup(int row);
+    class QUndoStack *m_undo = nullptr;
+    QCheckBox *m_editMode = nullptr;
     void moveStep(int delta);
     Engine *m_engine;
     QListWidget *m_sequences;

@@ -142,6 +142,8 @@ void Sequencer::setSequence(int i, const Sequence &s)
         const quint64 played = position >= 0 && position < int(old.size()) ? old[size_t(position)].runtimeId : 0;
         // The startup step follows its step when steps are inserted, removed or moved before it
         const quint64 startup = i == m_startupSequence && m_startupStep < int(old.size()) ? old[size_t(m_startupStep)].runtimeId : 0;
+        if (s.editMode && !m_sequences[size_t(i)].editMode)
+            stopSequenceLocked(i);
         m_sequences[size_t(i)] = s;
         auto &steps = m_sequences[size_t(i)].steps;
         QSet<quint64> seen;
@@ -434,8 +436,8 @@ bool Sequencer::goToSequence(quint64 owner, int step, bool chain, std::shared_pt
         if (index >= 0 && (!expected || expected->load())) {
             const Sequence &s = m_sequences[size_t(index)];
             const int target = resolve(s, step);
-            if (s.tracking && target >= 0 && target < int(s.steps.size()) && target != nextOfLocked(index) &&
-                !s.steps[size_t(target)].snapshot) {
+            if (!s.editMode && s.tracking && target >= 0 && target < int(s.steps.size()) &&
+                target != nextOfLocked(index) && !s.steps[size_t(target)].snapshot) {
                 int from = target - 1;
                 while (from > 0 && !s.steps[size_t(from)].snapshot) --from;
                 for (int k = std::max(0, from); k < target; ++k) before.push_back(s.steps[size_t(k)]);
@@ -452,6 +454,8 @@ bool Sequencer::goToSequence(quint64 owner, int step, bool chain, std::shared_pt
         step = resolve(s, step);
         if (step < 0 || step >= int(s.steps.size())) return false;
         const Step &st = s.steps[size_t(step)];
+        if (s.editMode)
+            chain = false;
         if (!chain) {
             m_runs.erase(std::remove_if(m_runs.begin(), m_runs.end(),
                 [owner](const Run &r) { return r.sequenceId == owner; }), m_runs.end());
@@ -475,6 +479,10 @@ bool Sequencer::goToSequence(quint64 owner, int step, bool chain, std::shared_pt
 void Sequencer::playAtOnce(const std::vector<Step> &steps)
 {
     for (const Step &st : steps) {
+        if (!st.actions.empty()) {
+            playAtOnce(st.actions);
+            continue;
+        }
         if (st.sequence) continue; // a jump does not start other sequences
         if (st.timeline) {
             m_engine.controlAnimation(st.timeline, st.action, st.action == AnimAction::Speed ? st.speed : st.seekTime, st.loop, st.repeat);
@@ -791,6 +799,30 @@ void Sequencer::fireSnapshot(quint64 snapshotId)
 // Each step on its way moves on by dt: its snapshot once its pre-wait is over, the next step's GO when its
 // continuation says so (the time beyond it carried over, so that chained waits do not drift). A step is
 // forgotten once its action is over and nothing more comes from it.
+static bool tracksTimeline(const Sequencer::Step &step)
+{
+    if (step.actions.empty())
+        return step.timeline && step.action == AnimAction::Play;
+    return std::any_of(step.actions.begin(), step.actions.end(), tracksTimeline);
+}
+static double timelineRemaining(Engine &engine, const Sequencer::Step &step)
+{
+    if (step.actions.empty())
+        return tracksTimeline(step) ? engine.animationRemaining(step.timeline) : 0;
+    double remaining = 0;
+    for (const auto &action : step.actions)
+        remaining = std::max(remaining, timelineRemaining(engine, action));
+    return remaining;
+}
+static double fixedDuration(Sequencer &seq, const Sequencer::Step &step)
+{
+    if (step.actions.empty())
+        return tracksTimeline(step) ? 0 : seq.stepDuration(step);
+    double duration = 0;
+    for (const auto &action : step.actions)
+        duration = std::max(duration, fixedDuration(seq, action));
+    return duration;
+}
 void Sequencer::advance(double dt)
 {
     dt = std::max(0.0, dt);
@@ -817,18 +849,23 @@ void Sequencer::advance(double dt)
                         // Keep its full remaining duration before AutoFollow can run.
                         if (r.target.action == AnimAction::Play) r.duration += r.elapsed - r.preWait;
                     }
-                    r.trackPending = r.target.timeline && r.target.action == AnimAction::Play;
+                    if (!r.target.actions.empty()) {
+                        const double late = r.elapsed - r.preWait;
+                        r.duration = stepDuration(r.target) + late;
+                        r.fixedDuration = fixedDuration(*this, r.target) + late;
+                    }
+                    r.trackPending = tracksTimeline(r.target);
                     fire.push_back(r);
                 } else if (r.tracking) {
                     // Track the animation's real remaining time while it runs, including speed and loop edits.
                     // Freeze the action's duration when playback ends. Otherwise elapsed + 0 is recomputed
                     // on every tick, so AutoFollow's post-wait deadline moves forever.
-                    const double remaining = m_engine.animationRemaining(r.target.timeline);
+                    const double remaining = timelineRemaining(m_engine, r.target);
                     if (remaining <= 0.0) {
-                        r.duration = std::max(0.0, r.elapsed - r.preWait);
+                        r.duration = std::max(r.fixedDuration, r.elapsed - r.preWait);
                         r.tracking = false;
                     } else {
-                        r.duration = std::max(0.0, r.elapsed - r.preWait) + remaining;
+                        r.duration = std::max(r.fixedDuration, std::max(0.0, r.elapsed - r.preWait) + remaining);
                     }
                 }
                 const double at = r.continueAt();
@@ -855,7 +892,19 @@ void Sequencer::advance(double dt)
         // through the interface's undo stack)
         if (!fire.empty()) m_engine.noteInput(FrameTiming::Cue);
         bool called = false;
-        for (const Run &action : fire) {
+        std::vector<Run> dispatches;
+        for (const auto &run : fire) {
+            if (run.target.actions.empty())
+                dispatches.push_back(run);
+            else
+                for (const auto &target : run.target.actions) {
+                    auto action = run;
+                    action.target = target;
+                    action.target.runtimeId = run.target.runtimeId;
+                    dispatches.push_back(std::move(action));
+                }
+        }
+        for (const Run &action : dispatches) {
             QMutexLocker dispatch(&m_dispatchMutex);
             if (!action.valid->load()) continue;
             {
@@ -877,7 +926,13 @@ void Sequencer::advance(double dt)
                 const auto target = m_sequences[size_t(sequence)].steps.front();
                 const quint64 owner = st.sequence;
                 stopSequenceLocked(sequence); // Play sequence starts fresh, without an earlier pending follow
-                Run child = runOf(target, 0, true, owner);
+                auto editing = [&](quint64 id) {
+                    const int i = sequenceIndexLocked(id);
+                    return i >= 0 && m_sequences[size_t(i)].editMode;
+                };
+                const bool audition = editing(action.sequenceId) || editing(owner) ||
+                                      std::any_of(action.callers.begin(), action.callers.end(), editing);
+                Run child = runOf(target, 0, !audition, owner);
                 child.valid = commandTokenLocked(owner);
                 child.duration = stepDuration(target);
                 child.callers = action.callers;
@@ -932,6 +987,100 @@ void Sequencer::advance(double dt)
     if (moved) emit positionChanged();
 }
 
+QJsonObject Sequencer::stepToJson(const Step &st)
+{
+    QJsonObject o;
+    if (st.sequence)
+        o["sequence"] = QString::number(st.sequence);
+    else if (st.preset)
+        o["preset"] = QString::number(st.preset);
+    else if (st.timeline) {
+        static const char *const actions[] = {"play", "pause", "stop", "rewind", "seek", "loop_mode", "speed"};
+        o["timeline"] = QString::number(st.timeline);
+        o["action"] = QString::fromLatin1(actions[std::clamp(int(st.action), 0, 6)]);
+        if (st.action == AnimAction::Seek)
+            o["time"] = st.seekTime;
+        if (st.action == AnimAction::Speed)
+            o["speed"] = st.speed;
+        if (st.action == AnimAction::LoopMode) {
+            o["loop"] = animLoopKey(st.loop);
+            if (st.repeat > 0)
+                o["repeat"] = st.repeat;
+        }
+    } else {
+        o["snapshot"] = QString::number(st.snapshot);
+    }
+    if (!st.text.isEmpty())
+        o["text"] = st.text;
+    if (!st.description.isEmpty())
+        o["description"] = st.description;
+    if (st.preWait > 0)
+        o["pre_wait"] = st.preWait;
+    if (st.postWait > 0)
+        o["post_wait"] = st.postWait;
+    if (st.next != StepContinue::Wait)
+        o["continue"] = st.next == StepContinue::Follow ? "follow" : "auto_follow";
+    if (st.at >= 0)
+        o["at"] = st.at;
+    if (!st.actions.empty()) {
+        QJsonArray actions;
+        for (auto action : st.actions) {
+            action.actions.clear();
+            actions.append(stepToJson(action));
+        }
+        o["actions"] = actions;
+    }
+    return o;
+}
+
+Sequencer::Step Sequencer::stepFromJson(const QJsonObject &so)
+{
+    Step st;
+    st.sequence = so.value("sequence").toString().toULongLong();
+    st.preset = st.sequence ? 0 : so.value("preset").toString().toULongLong();
+    st.snapshot = so.value("snapshot").toString().toULongLong();
+    st.timeline = so.value("timeline").toString().toULongLong();
+    if (st.sequence || st.preset)
+        st.snapshot = st.timeline = 0;
+    if (st.timeline) {
+        const QString a = so.value("action").toString();
+        st.action = a == "pause"       ? AnimAction::Pause
+                    : a == "stop"      ? AnimAction::Stop
+                    : a == "rewind"    ? AnimAction::Rewind
+                    : a == "seek"      ? AnimAction::Seek
+                    : a == "loop_mode" ? AnimAction::LoopMode
+                    : a == "speed"     ? AnimAction::Speed
+                                       : AnimAction::Play;
+        st.speed = std::clamp(so.value("speed").toDouble(1), 0.0, 10.0);
+        st.seekTime = std::max(0.0, so.value("time").toDouble(0));
+        st.loop = animLoopFromKey(so.value("loop").toString());
+        st.repeat = std::clamp(so.value("repeat").toInt(0), 0, 100000);
+        st.snapshot = 0;
+    }
+    st.text = so.value("text").toString();
+    st.description = so.value("description").toString();
+    st.preWait = std::clamp(so.value("pre_wait").toDouble(0), 0.0, 3600.0);
+    st.postWait = std::clamp(so.value("post_wait").toDouble(0), 0.0, 3600.0);
+    const QString c = so.value("continue").toString();
+    st.next = c == "follow" ? StepContinue::Follow : c == "auto_follow" ? StepContinue::AutoFollow : StepContinue::Wait;
+    const double at = so.value("at").toDouble(-1);
+    st.at = std::isfinite(at) && at >= 0 ? at : -1;
+    // Only one group level is accepted, bounded before parsing clipboard/project data.
+    const auto actions = so.value("actions").toArray();
+    for (int i = 0; i < std::min(64, int(actions.size())); ++i) {
+        auto item = actions[i].toObject();
+        item.remove("actions");
+        Step action = stepFromJson(item);
+        action.preWait = action.postWait = 0;
+        action.next = StepContinue::Wait;
+        action.at = -1;
+        st.actions.push_back(std::move(action));
+    }
+    if (!st.actions.empty())
+        st.snapshot = st.timeline = st.preset = st.sequence = 0;
+    return st;
+}
+
 QJsonArray Sequencer::toJson() const
 {
     QMutexLocker lk(&m_mutex);
@@ -939,32 +1088,15 @@ QJsonArray Sequencer::toJson() const
     for (const Sequence &s : m_sequences) {
         QJsonArray steps;
         for (const Step &st : s.steps) {
-            QJsonObject o;
-            if (st.sequence) o["sequence"] = QString::number(st.sequence);
-            else if (st.preset) o["preset"] = QString::number(st.preset);
-            else if (st.timeline) {
-                static const char *const actions[] = {"play", "pause", "stop", "rewind", "seek", "loop_mode", "speed"};
-                o["timeline"] = QString::number(st.timeline);
-                o["action"] = QString::fromLatin1(actions[std::clamp(int(st.action), 0, 6)]);
-                if (st.action == AnimAction::Seek) o["time"] = st.seekTime;
-                if (st.action == AnimAction::Speed) o["speed"] = st.speed;
-                if (st.action == AnimAction::LoopMode) {
-                    o["loop"] = animLoopKey(st.loop);
-                    if (st.repeat > 0) o["repeat"] = st.repeat;
-                }
-            } else {
-                o["snapshot"] = QString::number(st.snapshot);
-            }
-            if (!st.text.isEmpty()) o["text"] = st.text;
-            if (!st.description.isEmpty()) o["description"] = st.description;
-            if (st.preWait > 0) o["pre_wait"] = st.preWait;
-            if (st.postWait > 0) o["post_wait"] = st.postWait;
-            if (st.next != StepContinue::Wait) o["continue"] = st.next == StepContinue::Follow ? "follow" : "auto_follow";
-            if (st.at >= 0) o["at"] = st.at;
+            const auto o = stepToJson(st);
             steps.append(o);
         }
-        QJsonObject so{{"id", QString::number(m_sequenceIds[size_t(out.size())])}, {"name", s.name}, {"loop", s.loop},
-                       {"tracking", s.tracking}, {"steps", steps}};
+        QJsonObject so{{"id", QString::number(m_sequenceIds[size_t(out.size())])},
+                       {"name", s.name},
+                       {"loop", s.loop},
+                       {"tracking", s.tracking},
+                       {"edit_mode", s.editMode},
+                       {"steps", steps}};
         if (!s.clockParam.isEmpty()) so["timecode"] = QJsonObject{{"layer", QString::number(s.clockLayer)}, {"param", s.clockParam}};
         out.append(so);
     }
@@ -979,8 +1111,12 @@ void Sequencer::fromJson(const QJsonArray &a, int current)
     for (const auto &value : a) {
         const auto o = value.toObject();
         m_nextSequenceId = std::max(m_nextSequenceId, o.value("id").toString().toULongLong() + 1);
-        for (const auto &step : o.value("steps").toArray())
-            m_nextSequenceId = std::max(m_nextSequenceId, step.toObject().value("sequence").toString().toULongLong() + 1);
+        for (const auto &value : o.value("steps").toArray()) {
+            const auto step = stepFromJson(value.toObject());
+            m_nextSequenceId = std::max(m_nextSequenceId, step.sequence + 1);
+            for (const auto &action : step.actions)
+                m_nextSequenceId = std::max(m_nextSequenceId, action.sequence + 1);
+        }
     }
     QSet<quint64> seen;
     for (const QJsonValue &v : a) {
@@ -993,37 +1129,14 @@ void Sequencer::fromJson(const QJsonArray &a, int current)
         s.name = o.value("name").toString();
         s.loop = o.value("loop").toBool(false);
         s.tracking = o.value("tracking").toBool(true);
+        s.editMode = o.value("edit_mode").toBool(false);
         const QJsonObject clock = o.value("timecode").toObject();
         s.clockLayer = clock.value("layer").toString().toULongLong();
         s.clockParam = clock.value("param").toString();
         for (const QJsonValue &sv : o.value("steps").toArray()) {
             const QJsonObject so = sv.toObject();
-            Step st;
+            Step st = stepFromJson(so);
             st.runtimeId = m_nextStepId++;
-            st.sequence = so.value("sequence").toString().toULongLong();
-            st.preset = st.sequence ? 0 : so.value("preset").toString().toULongLong();
-            st.snapshot = so.value("snapshot").toString().toULongLong();
-            st.timeline = so.value("timeline").toString().toULongLong();
-            if (st.sequence || st.preset) st.snapshot = st.timeline = 0;
-            if (st.timeline) {
-                const QString a = so.value("action").toString();
-                st.action = a == "pause" ? AnimAction::Pause : a == "stop" ? AnimAction::Stop : a == "rewind" ? AnimAction::Rewind
-                          : a == "seek" ? AnimAction::Seek : a == "loop_mode" ? AnimAction::LoopMode
-                          : a == "speed" ? AnimAction::Speed : AnimAction::Play;
-                st.speed = std::clamp(so.value("speed").toDouble(1), 0.0, 10.0);
-                st.seekTime = std::max(0.0, so.value("time").toDouble(0));
-                st.loop = animLoopFromKey(so.value("loop").toString());
-                st.repeat = std::clamp(so.value("repeat").toInt(0), 0, 100000);
-                st.snapshot = 0;
-            }
-            st.text = so.value("text").toString();
-            st.description = so.value("description").toString();
-            st.preWait = std::clamp(so.value("pre_wait").toDouble(0), 0.0, 3600.0);
-            st.postWait = std::clamp(so.value("post_wait").toDouble(0), 0.0, 3600.0);
-            const QString c = so.value("continue").toString();
-            st.next = c == "follow" ? StepContinue::Follow : c == "auto_follow" ? StepContinue::AutoFollow : StepContinue::Wait;
-            const double at = so.value("at").toDouble(-1);
-            st.at = std::isfinite(at) && at >= 0 ? at : -1;
             s.steps.push_back(st);
         }
         m_sequences.push_back(s);
@@ -1057,6 +1170,12 @@ void Sequencer::clear()
 
 double Sequencer::stepDuration(const Step &st) const
 {
+    if (!st.actions.empty()) {
+        double duration = 0;
+        for (const auto &action : st.actions)
+            duration = std::max(duration, stepDuration(action));
+        return duration;
+    }
     if (st.sequence) return 0; // starts an independent sequence, which owns its waits and follows
     if (st.preset) return m_engine.presetDuration(st.preset);
     if (!st.timeline) return m_engine.snapshotDuration(st.snapshot);

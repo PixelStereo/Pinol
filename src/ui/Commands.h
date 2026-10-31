@@ -420,4 +420,6 @@ private:
 void editFixtures(QUndoStack *undo, Engine *e, const QString &text, const std::function<void(FixturePatch &)> &fn,
                   const QString &mergeKey = QString());
 
+// Definition edits retain stable identities across undo/redo.
+void editSnapshotLibrary(QUndoStack *undo, Engine *engine, const QString &text, const std::function<void()> &edit);
 } // namespace cmd
