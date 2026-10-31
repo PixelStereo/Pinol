@@ -103,13 +103,23 @@
       "TYPE": "long",
       "VALUES": [
         0,
-        1
+        1,
+        2
       ],
       "LABELS": [
         "Motion trails",
-        "Exponential average"
+        "Exponential average",
+        "Lighten accumulation (hold)"
       ],
       "DEFAULT": 0
+    },
+    {
+      "NAME": "accumulationFrames",
+      "LABEL": "Lighten hold frames (0 = until reset)",
+      "TYPE": "long",
+      "DEFAULT": 32,
+      "MIN": 0,
+      "MAX": 4096
     },
     {
       "NAME": "invert",
@@ -171,7 +181,8 @@
     },
     {
       "TARGET": "motionTrail",
-      "PERSISTENT": true
+      "PERSISTENT": true,
+      "FLOAT": true
     },
     {}
   ]
@@ -228,6 +239,24 @@ vec4 externalStats(){
     sortNine(r);sortNine(g);sortNine(b);sortNine(l);
     return vec4(r[4],g[4],b[4],max(0.0,l[6]-l[2]));
 }
+
+// Lighten accumulation holds each changed pixel for N quiet frames. For binary
+// masks this is the union of motion over the last N frames. Graded masks keep
+// their peak until N frames without a hit; zero holds it until capture/reset.
+vec4 temporalMask(vec2 uv,bool clearHistory) {
+    float cur=blurredMask(uv);
+    vec4 state=IMG_NORM_PIXEL(motionTrail,uv);
+    if(clearHistory || abs(state.b-float(temporalMode))>.25)state=vec4(0.0);
+    if(temporalMode==2){
+        float age=cur>.00001?0.0:min(state.g+1.0,65535.0);
+        float value=max(cur,state.r);
+        if(accumulationFrames>0 && age>=float(accumulationFrames))value=cur;
+        return vec4(value,age,2.0,1.0);
+    }
+    float value=temporalMode==0?max(cur,state.r*persistence):mix(cur,state.r,persistence);
+    return vec4(value,0.0,float(temporalMode),1.0);
+}
+
 void main(){
     vec2 uv=isf_FragNormCoord;
     bool reset=FRAMEINDEX==0||capture;
@@ -250,9 +279,7 @@ void main(){
         float d=reset&&!useReferenceImage?0.0:difference(cur,IMG_NORM_PIXEL(referenceFrame,uv));gl_FragColor=vec4(vec3(d),1.0);return;
     }
     if(PASSINDEX==4){
-        float cur=blurredMask(uv),old=reset?0.0:IMG_NORM_PIXEL(motionTrail,uv).r;
-        float value=temporalMode==0?max(cur,old*persistence):mix(cur,old,persistence);
-        gl_FragColor=vec4(vec3(value),1.0);return;
+        gl_FragColor=temporalMask(uv,reset);return;
     }
     gl_FragColor=outputMask(IMG_NORM_PIXEL(motionTrail,uv).r);
 }

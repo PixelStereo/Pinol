@@ -5,10 +5,10 @@
 1. Add a camera source to a layer. The same tools work on movies, images, and generators.
 2. Add **Motion Difference Absolute** or **Motion Difference Relative** from the effects library.
 3. Adjust **Threshold** and **Softness** while watching the black/white image. White means change. Use the ordinary FX mask routing when this image should mask another effect.
-4. In **Interactions**, add a **Pixels** input. Select the analyzed layer and **After FX (mask)** to measure the resulting mask. Select **Active area** for the fraction of changed pixels, **Mean / amount** for average intensity, or **Energy** for mean squared intensity.
+4. In **Interactions**, add a **Pixels** input. Select the analyzed layer and **Post FX** to measure the resulting mask. Select **Active area** for the fraction of changed pixels, **Mean / amount** for average intensity, or **Energy** for mean squared intensity.
 5. Map that input to an effect parameter, then adjust the existing interaction range, curve and smoothing controls.
 
-A hidden layer can still supply an enabled visual interaction. The source selector also offers the final composition, raw source and pre-FX layer image. Avoid mapping an analysis of the final composition back into a parameter that destabilizes the same image: that creates a feedback loop.
+A hidden layer can still supply an enabled visual interaction. Select a layer and choose **Pre FX** or **Post FX**. Post FX reads the complete effect chain, including a generated motion mask. Pre FX reads that layer before its effects. Composition and raw-source taps are not offered; older raw-source taps migrate to Pre FX. A source layer must be selected before analysis starts.
 
 ### Absolute reference
 
@@ -19,6 +19,8 @@ A hidden layer can still supply an enabled visual interaction. The source select
 ### Relative history
 
 **Motion Difference Relative** compares the current frame with the frame **N** rendered frames ago, or with the mean of the previous **N** frames (1–8). Press **Reset history** after changing a camera or scene. Initialization and reset fill the complete history and suppress the initial flash.
+
+Both effects also offer **Lighten accumulation (hold)** under temporal smoothing. **Lighten hold frames** supports 1–4096 frames, with 0 retaining the result until Capture reference / Reset history. Each changed pixel retains its brightest mask value until that many frames without new motion at that pixel. Binary masks therefore show the union of recently moving regions. Graded masks hold their peak and refresh the hold on each new hit; this is a peak hold rather than an exact sliding maximum of graded values. Use Active area or Energy in a separate Post FX pixel interaction to measure the accumulated footprint. Threshold and blur still apply before accumulation. The comparison history remains independent from this longer accumulation window.
 
 Both effects offer spatial blur and temporal persistence. **Maximum trail** retains recent movement; **Exponential average** smooths it. These controls affect the mask itself. The interaction's filters can separately smooth a derived number. History and adaptation follow rendered frames, so their timing depends on frame rate.
 

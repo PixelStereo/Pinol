@@ -126,6 +126,33 @@ int main(int argc, char **argv)
                 "average of previous two frames produces a graded difference");
         engine.renderFrame();
         require(mean(engine.grabOutput()) < .01, "averaged history catches up to static scene");
+        fx->input("historyFrames")->lValue = 1;
+        fx->input("historyMode")->lValue = 0;
+        fx->input("outputMode")->lValue = 1;
+        fx->input("temporalMode")->lValue = 2;
+        fx->input("accumulationFrames")->lValue = 12;
+        fx->input("reset")->eventFired = true;
+        engine.setLayerImage(layer, black, &error);
+        engine.renderFrame();
+        engine.setLayerImage(layer, patch, &error);
+        engine.renderFrame();
+        for (int i = 0; i < 10; ++i)
+            engine.renderFrame();
+        require(std::abs(mean(engine.grabOutput()) - .25) < .03,
+                "Lighten holds motion beyond eight images without fading");
+        engine.renderFrame();
+        engine.renderFrame();
+        require(mean(engine.grabOutput()) < .01, "Lighten clears after configured quiet-frame window");
+        fx->input("accumulationFrames")->lValue = 0;
+        engine.setLayerImage(layer, black, &error);
+        engine.renderFrame();
+        for (int i = 0; i < 70; ++i)
+            engine.renderFrame();
+        require(mean(engine.grabOutput()) > .2, "Lighten zero holds motion until reset");
+        fx->input("reset")->eventFired = true;
+        engine.renderFrame();
+        require(mean(engine.grabOutput()) < .01, "reset clears accumulated motion");
+        fx->input("temporalMode")->lValue = 0;
         // Analyze the post-FX mask separately and map it into an ordinary parameter.
         fx->input("persistence")->fValue = 0;
         fx->input("reset")->eventFired = true;
@@ -183,6 +210,37 @@ int main(int argc, char **argv)
         require(engine.interactions()[0].id == interactionId && engine.interactions()[0].pixels.layer == sourceId &&
                     engine.interactions()[0].pixelFeature == PixelAnalysis::Feature::Energy,
                 "vision project roundtrip");
+        engine.newProject();
+        engine.setCompositionSize(QSize(32, 32));
+        const int visual = engine.addLayer("Pre/post analysis");
+        const auto visualId = engine.layerId(visual);
+        require(engine.setLayerImage(visual, white, &error), error);
+        require(engine.addEffect(visual, root + "Motion Difference Absolute.fs", &error) >= 0, error);
+        const int before = engine.addLayer("Before FX target");
+        require(engine.setLayerText(before), "before target");
+        const auto beforeId = engine.layerId(before);
+        const int after = engine.addLayer("After FX target");
+        require(engine.setLayerText(after), "after target");
+        const auto afterId = engine.layerId(after);
+        auto pre = Interaction::made(InteractionSource::Pixels);
+        pre.pixels.layer = visualId;
+        pre.pixels.tap = 1;
+        pre.layer = beforeId;
+        pre.param = "opacity";
+        pre.filters.clear();
+        engine.addInteraction(pre);
+        auto post = pre;
+        post.pixels.tap = 2;
+        post.layer = afterId;
+        engine.addInteraction(post);
+        engine.setParameter(visualId, "enable", false);
+        for (int i = 0; i < 12; ++i) {
+            engine.renderFrame();
+            QThread::msleep(3);
+        }
+        require(engine.parameterValue(beforeId, "opacity").toDouble() > .95 &&
+                    engine.parameterValue(afterId, "opacity").toDouble() < .01,
+                "same layer analyzed independently before/after FX");
         engine.shutdown();
         std::cout << "GPU motion masks, lighting compensation, history, async analysis and project restore passed\n";
         return 0;

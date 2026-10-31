@@ -1048,11 +1048,11 @@ void InteractionPanel::rebuildSettings()
     case InteractionSource::Pixels:
     case InteractionSource::Hands: {
         const bool hands = it.source == InteractionSource::Hands;
-        form->addRow(note(QStringLiteral("1 · Choose an image layer (camera, video, mask or composition), then 2 · Map "
+        form->addRow(note(QStringLiteral("1 · Choose an image layer (camera, video or mask), then 2 · Map "
                                          "its analysis below. Masks are separate Motion Difference FX.")));
         auto *source = new QComboBox;
         source->setObjectName(QStringLiteral("visionSource"));
-        source->addItem(QStringLiteral("Composition"), QStringLiteral("0"));
+        source->addItem(QStringLiteral("Choose a layer…"), QStringLiteral("0"));
         {
             Engine::Lock lock(&m_engine->mutex());
             for (int i = 0; i < m_engine->layerCount(); ++i) {
@@ -1067,7 +1067,7 @@ void InteractionPanel::rebuildSettings()
             selected = source->count() - 1;
         }
         source->setCurrentIndex(selected);
-        form->addRow(QStringLiteral("Image source"), source);
+        form->addRow(QStringLiteral("Layer"), source);
         connect(source, qOverload<int>(&QComboBox::activated), this, [this, edit, source](int index) {
             const auto id = source->itemData(index).toString().toULongLong();
             edit(QStringLiteral("Change Image Analysis Source"), [id](Interaction &x) { x.pixels.layer = id; });
@@ -1076,12 +1076,13 @@ void InteractionPanel::rebuildSettings()
         attachPreset({source}, {QStringLiteral("source/vision/layer")});
         auto *tap = new QComboBox;
         tap->setObjectName(QStringLiteral("visionTap"));
-        tap->addItems({QStringLiteral("Source"), QStringLiteral("Before FX"), QStringLiteral("After FX (mask)")});
-        tap->setCurrentIndex(it.pixels.tap);
-        form->addRow(QStringLiteral("Image tap"), tap);
+        tap->addItem(QStringLiteral("Pre FX"), 1);
+        tap->addItem(QStringLiteral("Post FX"), 2);
+        tap->setCurrentIndex(std::clamp(it.pixels.tap, 1, 2) - 1);
+        form->addRow(QStringLiteral("Analyze"), tap);
         tap->setEnabled(it.pixels.layer != 0);
         connect(tap, qOverload<int>(&QComboBox::activated), this, [this, edit](int value) {
-            edit(QStringLiteral("Change Analysis Tap"), [value](Interaction &x) { x.pixels.tap = value; });
+            edit(QStringLiteral("Change Analysis Tap"), [value](Interaction &x) { x.pixels.tap = value + 1; });
             rebuildSettings();
         });
         attachPreset({tap}, {QStringLiteral("source/vision/tap")});

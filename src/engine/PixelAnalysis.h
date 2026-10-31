@@ -23,8 +23,8 @@ enum class Feature {
 QStringList channelNames();
 QStringList featureNames();
 struct Settings {
-    quint64 layer = 0; // 0: composition
-    int tap = 2;       // source, pre-FX, post-FX
+    quint64 layer = 0; // 0: no layer selected
+    int tap = 2;       // 1: pre-FX, 2: post-FX
     Channel channel = Channel::Luminance;
     double threshold = .05;
     QRectF roi{0, 0, 1, 1}; // normalized, origin top left

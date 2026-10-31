@@ -27,8 +27,10 @@ int main(int argc, char **argv)
     const auto fixture = qEnvironmentVariable("NYXMAP_HAND_IMAGE");
     if (!fixture.isEmpty()) {
         QImage image(fixture);
-        if (image.isNull())
+        if (image.isNull()) {
+            std::cerr << "Cannot decode hand fixture: " << fixture.toStdString();
             return 1;
+        }
         const auto found = detector.detect(image, &error);
         if (!error.isEmpty() || found.empty()) {
             std::cerr << "No hand in fixture: " << error.toStdString();

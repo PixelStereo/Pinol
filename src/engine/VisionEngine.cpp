@@ -12,7 +12,8 @@ void Engine::stepVision()
     }
     std::vector<VisionRuntime::Request> requests;
     auto add = [&](const Interaction &input) {
-        if (input.enabled && (input.source == InteractionSource::Pixels || input.source == InteractionSource::Hands))
+        if (input.enabled && input.pixels.layer &&
+            (input.source == InteractionSource::Pixels || input.source == InteractionSource::Hands))
             requests.push_back({input.pixels, input.source == InteractionSource::Hands});
     };
     for (const auto &input : m_interactions)
@@ -28,16 +29,12 @@ void Engine::stepVision()
     m_vision->step(
         requests,
         [this](const PixelAnalysis::Settings &settings) -> VisionRuntime::Texture {
-            if (!settings.layer) {
-                const auto &picture = m_output[m_back];
-                return {picture.tex, picture.w, picture.h};
-            }
+            if (!settings.layer)
+                return {};
             const auto *source = layer(indexOfId(settings.layer));
             if (!source)
                 return {};
-            if (settings.tap == 0 && !source->isGroup)
-                return {source->rawTex, source->rawW, source->rawH};
-            if (settings.tap == 1)
+            if (settings.tap <= 1)
                 return {source->preFxTex, source->preFxW, source->preFxH};
             return {source->finalTex, source->finalW, source->finalH};
         },
@@ -45,7 +42,7 @@ void Engine::stepVision()
 }
 double Engine::visionValue(const Interaction &input)
 {
-    if (!m_vision || m_visionReset)
+    if (!m_vision || m_visionReset || !input.pixels.layer)
         return 0;
     const auto now = AudioStream::clockNs();
     if (input.source == InteractionSource::Pixels)
@@ -100,6 +97,8 @@ QImage Engine::visionPreview(const PixelAnalysis::Settings &settings, bool hands
 QString Engine::visionStatus(const PixelAnalysis::Settings &settings, bool hands) const
 {
     Lock lock(&m_mutex);
+    if (!settings.layer)
+        return QStringLiteral("Choose an image layer to analyze, before or after FX");
     if (hands && !handTrackingAvailable())
         return QStringLiteral("Hands require OpenCV DNN at build time");
     if (!m_vision || m_visionReset)

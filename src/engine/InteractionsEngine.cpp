@@ -917,8 +917,9 @@ void Engine::makeInteractionParams()
             [](const Interaction &x) { return QString::number(x.pixels.layer); },
             [](Interaction &x, const QString &v) { x.pixels.layer = v.toULongLong(); });
         choice(
-            QStringLiteral("source/vision/tap"), QStringLiteral("Image tap"), {"source", "prefx", "postfx"},
-            [](const Interaction &x) { return x.pixels.tap; }, [](Interaction &x, int n) { x.pixels.tap = n; });
+            QStringLiteral("source/vision/tap"), QStringLiteral("Image tap"), {"prefx", "postfx"},
+            [](const Interaction &x) { return std::clamp(x.pixels.tap, 1, 2) - 1; },
+            [](Interaction &x, int n) { x.pixels.tap = n + 1; });
         choice(
             QStringLiteral("source/pixels/channel"), QStringLiteral("Pixel channel"), PixelAnalysis::channelNames(),
             [](const Interaction &x) { return int(x.pixels.channel); },

@@ -69,6 +69,7 @@ int main(int argc, char **argv)
         require(normalized.layer == 9007199254740993ULL && normalized.threshold == 1 && normalized.tap == 2 &&
                     int(normalized.channel) == 5,
                 "safe settings parsing and exact layer IDs");
+        require(Settings::fromJson({{"tap", 0}}).tap == 1, "legacy raw-source tap migrates to pre-FX");
         for (auto source : {InteractionSource::Pixels, InteractionSource::Hands}) {
             auto input = Interaction::made(source);
             input.pixels = settings;

@@ -35,7 +35,7 @@ PixelAnalysis::Settings PixelAnalysis::Settings::fromJson(const QJsonObject &jso
 {
     Settings s;
     s.layer = json.value("layer").toString().toULongLong();
-    s.tap = std::clamp(json.value("tap").toInt(2), 0, 2);
+    s.tap = std::clamp(json.value("tap").toInt(2), 1, 2);
     s.channel = Channel(std::clamp(json.value("channel").toInt(4), 0, 5));
     auto unit = [&](const char *key, double fallback) {
         double n = json.value(QLatin1String(key)).toDouble(fallback);

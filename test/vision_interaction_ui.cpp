@@ -26,6 +26,13 @@ int main(int argc, char **argv)
         panel.show();
         panel.learnFor(0, "opacity", InteractionSource::Pixels);
         app.processEvents();
+        auto *sourceChoice = panel.findChild<QComboBox *>("visionSource");
+        auto *tapChoice = panel.findChild<QComboBox *>("visionTap");
+        require(sourceChoice && sourceChoice->findText("Composition") == -1,
+                "analysis source is a layer, without composition option");
+        require(tapChoice && tapChoice->count() == 2 && tapChoice->itemData(0).toInt() == 1 &&
+                    tapChoice->itemData(1).toInt() == 2,
+                "pre/post FX are the only two analysis taps");
         auto *tabs = panel.findChild<QTabBar *>();
         require(tabs && tabs->tabText(tabs->currentIndex()) == "Pixels", "Pixels tab selected");
         auto *learn = panel.findChild<QToolButton *>("interactionLearn");
