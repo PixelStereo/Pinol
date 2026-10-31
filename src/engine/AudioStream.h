@@ -8,6 +8,10 @@
 // adjusting its playback rate very slightly (at most 0.5 %, inaudible), and resynchronizes (short fade,
 // then seek) when the gap is too large: seek, speed change, render stall.
 
+#include "AudioCapture.h"
+#include "AudioEffects.h"
+#include "AudioGenerator.h"
+#include "AudioMeter.h"
 #include "Timeline.h"
 
 #include <QString>
@@ -44,6 +48,8 @@ public:
     // Opens the best audio track of the file. Returns false (with err) if there is none.
     bool open(const QString &path, int outputRate, QString *err);
     void close();
+    AudioGenerator *generator() const { return m_synth.get(); }
+    AudioCapture *capture() const { return m_capture.get(); } // a live input; null for a file or a generator
     const Info &info() const { return m_info; }
     double duration() const { return m_info.duration; }
 
@@ -58,19 +64,31 @@ public:
     // Audio callback: adds `frames` stereo interleaved samples into `out`.
     // `latency` = time between this call and the moment the samples are heard (seconds).
     void mix(float *out, int frames, double latency);
+    // Attach before registering with AudioOutput; the chain itself supports live edits.
+    void setEffects(std::shared_ptr<AudioEffectChain> effects) { m_effects = std::move(effects); }
 
-    // Meters and diagnostics (any thread)
+    // Meters and diagnostics (any thread). The source's (before the FX) and the layer's output (after its FX and its
+    // fader); each FX has its own (AudioEffect::meter)
+    const AudioMeter &sourceMeter() const { return m_sourceMeter; }
+    const AudioMeter &outputMeter() const { return m_outMeter; }
     float peak() const { return m_peak.load(); }
     double syncError() const { return m_syncError.load(); } // heard position - expected position (s)
     int lastSeekError() const { return m_lastSeekError.load(); } // 0 after open or a successful seek
     int resyncCount() const { return m_resyncs.load(); }
 
 private:
+    void mixSource(float *out, int frames, double latency);
+    std::shared_ptr<AudioEffectChain> m_effects;
+    float m_postGain = 1;
+    bool m_postInitialized = false;
+    std::unique_ptr<AudioGenerator> m_synth;
+    std::unique_ptr<AudioCapture> m_capture;
+    AudioMeter m_sourceMeter, m_outMeter;
     // Decoded samples handed from the decode thread to the audio callback: a ring of slots, one writer (the decode
     // thread) and one reader (the callback), no lock. A slot keeps its buffer: no allocation once warmed up.
     struct Chunk {
-        double pts = 0;             // timeline clock of the first sample, seconds
-        uint64_t generation = 0;    // the seek it follows (older ones are dropped by the callback)
+        double pts = 0;          // timeline clock of the first sample, seconds
+        uint64_t generation = 0; // the seek it follows (older ones are dropped by the callback)
         size_t frames = 0;
         std::vector<float> samples; // stereo interleaved, capacity kept
     };

@@ -95,6 +95,7 @@ private:
     void toggleLockCurrent();
     void moveRows(const QList<int> &rows, int beforeRow, int parentRow);
     void startOsc();
+    void startRemote();
     bool refuseLocked(int layer); // status message if locked
     void duplicateCurrentLayer();
     void moveCurrentLayer(int delta);
@@ -127,6 +128,7 @@ private:
     Engine *m_engine;
     QUndoStack *m_undo = nullptr;
     class InteractionPanel *m_interactions = nullptr;
+    class ControlsPanel *m_controls = nullptr;
     MappingView *m_view = nullptr;
     LayerInspector *m_inspector = nullptr;
     LayerInspector *m_viewportInspector = nullptr;
@@ -160,6 +162,8 @@ private:
     QLabel *m_status = nullptr;
     OscServer *m_osc = nullptr;
     QThread *m_oscThread = nullptr;
+    class RemoteServer *m_remote = nullptr;
+    QThread *m_remoteThread = nullptr;
     QTimer m_recallRefreshTimer;
     QTimer m_statusTimer, m_renderTimer, m_autosaveTimer, m_binTimer, m_inspectorTimer;
 

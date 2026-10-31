@@ -1,9 +1,10 @@
 #pragma once
+#include "Tox.h"
+#include <QJsonArray>
+#include <QJsonObject>
 #include <QPointer>
 #include <QVariant>
-#include <QJsonObject>
 #include <QWidget>
-#include "Tox.h"
 #include <functional>
 #include <memory>
 #include <vector>
@@ -27,11 +28,14 @@ class QLineEdit;
 class RoiEditor;
 class ColorEditor;
 class QComboBox;
+class QToolButton;
 class QGroupBox;
 class ParamPanel;
 class ParamAnimPanel;
 class AnimateMenu;
 class QTabWidget;
+class FxChainPanel;
+class LevelMeter;
 class ViewportOutputPanel;
 
 // Inspector for the selected layer, group or viewport: at the top, always shown, its source (drop zone, transport,
@@ -71,15 +75,31 @@ signals:
     void projectEdited();                  // saved interface state of the layer changed (not undoable)
     void kindChanged(const QString &kind); // "Layer", "Group" or "Viewport": the title of the tab
     void maskSelected(int index);          // the mask the preview edits (-1: none)
+    void layerPickRequested(quint64 id);   // the menu at the top: inspect this layer, group or viewport
     void maskDrawRequested();              // the preview draws a new mask point by point
     void lineDrawRequested();              // a Line generator: the preview draws a new line point by point
     // A Line generator: a pixel mapping fixture of that type on each of its lines, its pixels along it
     void lineFixturesRequested(const QString &typeId, int pixels);
 
 private:
+    void buildPicker();   // the menu at the top (made once)
+    void refreshPicker(); // its items follow the layers (added, renamed, moved), its current one the layer shown
+    QString m_pickerKey;
+    QPointer<QComboBox> m_picker;
+    QPointer<QToolButton> m_pickerPrev, m_pickerNext;
     QString layoutKey() const;
     QString m_layoutKey;
     QWidget *buildSource(const LayerValues &s);    // above the tabs: the drop zone, the transition, the speed
+    QWidget *buildAudioEffects();   // the Audio FX tab (the FX tab's mechanism, for the sound)
+    void showAudioEffectParams();  // the parameters of the selected audio FX, swapped without rebuilding the list
+    void editAudioEffects(const QJsonArray &after, const QString &text);
+    void refreshAudioMeters();
+    std::vector<std::pair<QPointer<QWidget>, QString>> m_audioFXFields; // the chain's (master switch)
+    std::vector<std::pair<QPointer<QWidget>, QString>> m_audioFxDetail; // the selected FX's parameters
+    QPointer<FxChainPanel> m_audioChain;
+    int m_selectedAudioFx = 0;
+    QPointer<QLabel> m_sonificationSwatch; // the color a Video Sonification instrument sees
+    QPointer<LevelMeter> m_audioSourceMeter, m_audioOutputMeter, m_audioFxMeter;
     QWidget *buildSourceTab(const LayerValues &s); // the Source tab
     QWidget *buildViewports(const LayerValues &s); // the Viewports tab: how much of it each one shows
     void useLayer(int row, const std::vector<std::pair<quint64, QString>> &candidates); // a layer dropped on the source
@@ -136,6 +156,7 @@ private:
     QPointer<SliderField> m_temp, m_tint;
     // Followed while a snapshot fades them (as temp / tint)
     QPointer<SliderField> m_opacity, m_volume;
+    std::vector<std::pair<QPointer<SliderField>, QString>> m_synthFields;
     QPointer<ParamPanel> m_generatorParams, m_effectParams;
     struct RouteField {
         quint64 viewport;
@@ -144,7 +165,7 @@ private:
     };
     std::vector<RouteField> m_routeFields;
     bool m_previewing = false;
-    QPointer<QProgressBar> m_meter;
+    QPointer<LevelMeter> m_meter; // the layer's output level, in the Source tab
     QPointer<QLabel> m_pictureFact; // known once frames are decoded: kept up to date
     QPointer<QLabel> m_streamState; // a live stream: connecting, live, reconnecting (and why)
     QPointer<QLabel> m_timecodeStatus; // a Timecode generator: where its timecode comes from, kept up to date

@@ -399,7 +399,7 @@ jobs:
   macos:
     if: needs.scope.outputs.build == 'true'
     name: macOS (Apple Silicon) + tests
-    runs-on: macos-14
+    runs-on: macos-15
     needs: [scope, media]
     steps:
       - uses: actions/checkout@v4
@@ -461,6 +461,11 @@ jobs:
 
           test -d "$APP"
           test -f "$EXE"
+          # Faust programs/presets are data; code signing must never encounter
+          # .dsp resources in the bundle's executable directory.
+          test ! -e "$APP/Contents/MacOS/audio"
+          test -f "$APP/Contents/Resources/audio/generators/FM.nyxaudio"
+          test -f "$APP/Contents/Resources/audio/fx/Equalizer.dsp"
 
           # macdeployqt preserves Qt's framework layout and handles its plugin deployment.
           # Supply FFmpeg and every Homebrew runtime dependency as extra search paths,
@@ -653,6 +658,7 @@ jobs:
           Copy-Item build\NyxMap.exe dist\NyxMap.exe -Force
           Copy-Item build\TouchEngine.dll dist\TouchEngine.dll -Force
           Copy-Item -Recurse -Force build\isf dist\isf
+          Copy-Item -Recurse -Force build\audio dist\audio
           Copy-Item LICENSE, THIRD-PARTY-NOTICES.md -Destination dist -Force
           Copy-Item -Recurse -Force licenses dist\licenses
 

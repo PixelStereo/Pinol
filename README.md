@@ -53,6 +53,8 @@ Fit your content to any surface: a building, a set piece, a floor, a dome.
 
 Video (including **HAP** for heavy playback), image sequences, images and SVG, audio, text, clocks and countdowns, network streams (RTSP, SRT, HLS…), live inputs (cameras, screens, **NDI**, **Syphon**, **Spout**, **DeckLink**), web pages and **ISF generative shaders**.
 
+Generate sound in real time with **FM**, **granular synthesis**, **white/pink noise**, **ADSR envelopes** and **live video sonification**, using Faust instruments and reusable `.nyxaudio` presets. → [Audio generators](docs/audio-generators.md) · [Layer audio FX](docs/audio-effects.md) · [Clock, quantized sequences and envelopes](docs/clock-and-envelopes.md) · [Controls and the phone remote](docs/controls-and-remote.md)
+
 Stack them in layers and groups, blend them, add effects and correct the colour. A layer can even reuse another layer's picture, before or after its effects, at no extra cost.
 
 ### ⏱️ Cue — build the moment, then recall it

@@ -1,11 +1,13 @@
 #include "MediaBin.h"
-#include "LiveInput.h"
+#include "AudioResources.h"
 #include "Engine.h"
 #include "ImageFile.h"
+#include "LiveInput.h"
 #include "Psd.h"
 
 #include <QAction>
 #include <QCoreApplication>
+#include <QDateTime>
 #include <QDesktopServices>
 #include <QSet>
 #include <QTimer>
@@ -180,10 +182,15 @@ MediaBin::MediaBin(Engine *engine, QWidget *parent) : QWidget(parent), m_engine(
     filters->addWidget(m_search, 1);
     m_type = new QComboBox;
     m_type->setObjectName(QStringLiteral("typeFilter"));
-    m_type->addItems({QStringLiteral("All Types"), QStringLiteral("Videos"), QStringLiteral("Images"), QStringLiteral("Audio"),
-                      QStringLiteral("Generators"), QStringLiteral("Inputs"), QStringLiteral("ISF")});
-    m_type->setToolTip(QStringLiteral("Shows only one type of media"));
+    m_type->addItems({QStringLiteral("Video + Audio"), QStringLiteral("Video"), QStringLiteral("Audio")});
+    m_type->setToolTip(QStringLiteral("Shows the video, the audio, or both"));
     filters->addWidget(m_type);
+    m_kind = new QComboBox;
+    m_kind->setObjectName(QStringLiteral("kindFilter"));
+    m_kind->addItems({QStringLiteral("All Kinds"), QStringLiteral("Files"), QStringLiteral("Generators"), QStringLiteral("Inputs"),
+                      QStringLiteral("ISF")});
+    m_kind->setToolTip(QStringLiteral("Files: videos, images and sounds; Generators; live Inputs; the ISF library"));
+    filters->addWidget(m_kind);
     m_usage = new QComboBox;
     m_usage->setObjectName(QStringLiteral("usageFilter"));
     m_usage->addItems({QStringLiteral("All"), QStringLiteral("Used"), QStringLiteral("Unused")});
@@ -192,6 +199,7 @@ MediaBin::MediaBin(Engine *engine, QWidget *parent) : QWidget(parent), m_engine(
     v->addLayout(filters);
     connect(m_search, &QLineEdit::textChanged, this, &MediaBin::applyFilter);
     connect(m_type, &QComboBox::currentIndexChanged, this, &MediaBin::applyFilter);
+    connect(m_kind, &QComboBox::currentIndexChanged, this, &MediaBin::applyFilter);
     connect(m_usage, &QComboBox::currentIndexChanged, this, &MediaBin::applyFilter);
 
     auto *tree = new BinTree;
@@ -267,14 +275,14 @@ MediaBin::MediaBin(Engine *engine, QWidget *parent) : QWidget(parent), m_engine(
                                       "ISF FX dragged onto a layer join its FX chain.\n"
                                       "Double-click: load into the selected layer."));
     tree->onDrop = [this](const QStringList &p) { importFiles(p); };
-    m_videos = new BinItem(m_tree, {QStringLiteral("Videos")});
-    m_images = new BinItem(m_tree, {QStringLiteral("Images")});
-    m_audios = new BinItem(m_tree, {QStringLiteral("Audio")});
+    m_videoRoot = new BinItem(m_tree, {QStringLiteral("Video")});
+    m_audioRoot = new BinItem(m_tree, {QStringLiteral("Audio")});
+    m_videos = new BinItem(m_videoRoot, {QStringLiteral("Videos")});
+    m_images = new BinItem(m_videoRoot, {QStringLiteral("Images")});
     // The generators, built in, always there: Text, Timecode, Countdown, Stopwatch, Clock, Line
-    m_generators = new BinItem(m_tree, m_audios);
-    m_generators->setText(0, QStringLiteral("Generators"));
-    auto generator = [this](const QString &name, const QString &path) {
-        auto *it = new BinItem(m_generators);
+    m_generators = new BinItem(m_videoRoot, {QStringLiteral("Generators")});
+    auto generator = [](QTreeWidgetItem *group, const QString &name, const QString &path) {
+        auto *it = new BinItem(group);
         it->setData(0, PathRole, path);
         it->setData(0, IsfRole, true); // no file: not relinked
         it->setData(0, MissingRole, false);
@@ -284,35 +292,58 @@ MediaBin::MediaBin(Engine *engine, QWidget *parent) : QWidget(parent), m_engine(
         it->setTextAlignment(2, Qt::AlignCenter);
         return it;
     };
-    m_text = generator(QStringLiteral("Text"), kTextGeneratorPath);
-    m_timecode = generator(QStringLiteral("Timecode"), kTimecodeGeneratorPath);
+    m_text = generator(m_generators, QStringLiteral("Text"), kTextGeneratorPath);
+    m_timecode = generator(m_generators, QStringLiteral("Timecode"), kTimecodeGeneratorPath);
     for (ClockKind k : {ClockKind::Countdown, ClockKind::Stopwatch, ClockKind::Clock})
-        m_clocks[int(k)] = generator(clockKindName(k), clockGeneratorPath(k));
-    m_line = generator(QStringLiteral("Line"), kLineGeneratorPath);
+        m_clocks[int(k)] = generator(m_generators, clockKindName(k), clockGeneratorPath(k));
+    m_line = generator(m_generators, QStringLiteral("Line"), kLineGeneratorPath);
     // Web Page: only when the application has a browser (Qt WebEngine)
-    m_web = webPagesAvailable() ? generator(QStringLiteral("Web Page"), kWebGeneratorPath) : nullptr;
-    m_inputs = new BinItem(m_tree, m_generators);
-    m_inputs->setText(0, QStringLiteral("Inputs"));
-    m_isf = new BinItem(m_tree, {QStringLiteral("ISF")});
+    m_web = webPagesAvailable() ? generator(m_generators, QStringLiteral("Web Page"), kWebGeneratorPath) : nullptr;
+    m_inputs = new BinItem(m_videoRoot, {QStringLiteral("Inputs")});
+    m_isf = new BinItem(m_videoRoot, {QStringLiteral("ISF")});
     m_isfGenerators = new BinItem(m_isf, {QStringLiteral("Generators")});
+
+    m_audios = new BinItem(m_audioRoot, {QStringLiteral("Sounds")});
+    m_audioGenerators = new BinItem(m_audioRoot, {QStringLiteral("Generators")});
+    const auto generatorFolder = AudioResources::generatorsFolder();
+    const QDir audioGenerators(generatorFolder);
+    if (!generatorFolder.isEmpty())
+        for (const auto &[name, file] : {std::pair{QStringLiteral("FM"), QStringLiteral("FM")},
+                                         std::pair{QStringLiteral("Granular"), QStringLiteral("Granular")},
+                                         std::pair{QStringLiteral("White Noise"), QStringLiteral("White Noise")},
+                                         std::pair{QStringLiteral("Pink Noise"), QStringLiteral("Pink Noise")},
+                                         std::pair{QStringLiteral("Video Sonification"), QStringLiteral("Video")}}) {
+            const QString path = audioGenerators.filePath(file + QStringLiteral(".nyxaudio"));
+            if (QFileInfo::exists(path))
+                generator(m_audioGenerators, name, path);
+        }
+    m_audioInputs = new BinItem(m_audioRoot, {QStringLiteral("Inputs")});
+
     int groupOrder = 0;
-    for (QTreeWidgetItem *group : {m_videos, m_images, m_audios, m_generators, m_inputs, m_isf})
+    const QList<QTreeWidgetItem *> groups{m_videoRoot, m_audioRoot, m_videos, m_images, m_generators, m_inputs, m_isf,
+                                          m_isfGenerators, m_audios, m_audioGenerators, m_audioInputs};
+    for (QTreeWidgetItem *group : groups) {
         group->setData(0, GroupOrderRole, groupOrder++);
-    for (QTreeWidgetItem *cat : {m_videos, m_images, m_audios, m_generators, m_inputs, m_isf, m_isfGenerators}) {
-        QFont f = cat->font(0);
+        QFont f = group->font(0);
         f.setBold(true);
-        cat->setFont(0, f);
-        cat->setFlags(Qt::ItemIsEnabled);
-        cat->setExpanded(true);
-        cat->setFirstColumnSpanned(true);
+        group->setFont(0, f);
+        group->setFlags(Qt::ItemIsEnabled);
+        group->setExpanded(true);
+        group->setFirstColumnSpanned(true);
     }
     v->addWidget(m_tree, 1);
     m_inputs->setToolTip(0, QStringLiteral("Cameras, screens and windows, DeckLink inputs, and the NDI, OMT, Syphon and Spout sources "
                                           "found on this machine and the network"));
+    m_audioInputs->setToolTip(0, QStringLiteral("The sound inputs of this machine (microphones, sound card inputs): dragged onto a layer, "
+                                                "a live sound with its volume, its Audio FX and its levels"));
+    m_audioGenerators->setToolTip(0, QStringLiteral("Real-time instruments written in Faust (FM, granular, noise, the sound of the "
+                                                    "picture), and your own .dsp programs"));
     auto *look = new QTimer(this); // the network's sources come and go
     look->setInterval(3000);
     connect(look, &QTimer::timeout, this, [this] {
-        if (isVisible()) refreshInputs();
+        if (!isVisible()) return;
+        refreshInputs();
+        refreshAudioInputs();
     });
     look->start();
 
@@ -370,6 +401,7 @@ void MediaBin::refresh()
         for (int i = 0; i < cat->childCount(); ++i) existing.insert(cat->child(i)->data(0, PathRole).toString(), cat->child(i));
     QSet<QString> seen;
     for (const auto &r : usage) {
+        if (r.audio && AudioGenerator::isRecipe(r.path)) continue; // an instrument: Audio > Generators (refreshAudioGenerators)
         QTreeWidgetItem *cat = r.video ? m_videos : r.audio ? m_audios : m_images;
         QTreeWidgetItem *it = existing.value(r.path);
         if (it && it->parent() != cat) {
@@ -422,13 +454,15 @@ void MediaBin::refresh()
         if (!seen.contains(e.key())) delete e.value();
     m_videos->setText(0, QStringLiteral("Videos (%1)").arg(nv));
     m_images->setText(0, QStringLiteral("Images (%1)").arg(ni));
-    m_audios->setText(0, QStringLiteral("Audio (%1)").arg(na));
+    m_audios->setText(0, QStringLiteral("Sounds (%1)").arg(na));
     m_summary->setText(missing ? QStringLiteral("<span style='color:#ff6e5f'>%1 missing file(s): "
                                                 "select them, then \"Replace…\"</span>").arg(missing)
                                : QStringLiteral("%1 file(s)").arg(nv + ni + na));
     refreshIsf();
     refreshText();
     refreshInputs();
+    refreshAudioGenerators();
+    refreshAudioInputs(true);
     if (!selected.isEmpty())
         for (QTreeWidgetItemIterator it(m_tree); *it; ++it) // ISF items are one level deeper (category)
             if ((*it)->data(0, PathRole).toString() == selected) {
@@ -562,7 +596,47 @@ void MediaBin::refreshIsf()
     m_isfGenerators->setText(0, QStringLiteral("Generators (%1)").arg(total));
 }
 
-// Inputs: the cameras, the screens and windows, the DeckLink inputs, and the NDI, OMT, Syphon and Spout sources
+// What an Inputs group shows: the inputs found now, plus those the layers use that are not there
+namespace {
+struct InputRow {
+    QString uri, name, kind;
+    bool present;
+};
+
+// Fills `group` with `rows` (the users of each by URI); false when it was already as it is (no flicker)
+bool fillInputs(QTreeWidget *tree, QTreeWidgetItem *group, QStringList *signature, const std::vector<InputRow> &rows,
+                const QHash<QString, QStringList> &users, const QString &title, const QString &dragTip)
+{
+    QStringList now;
+    for (const InputRow &r : rows) now << r.uri + (r.present ? "+" : "-") + users.value(r.uri).join(',');
+    if (now == *signature && group->childCount() == int(rows.size())) return false;
+    const SortingPause sorting(tree);
+    *signature = now;
+    while (group->childCount()) delete group->takeChild(0);
+    for (const InputRow &r : rows) {
+        auto *it = new BinItem(group);
+        it->setData(0, PathRole, liveInputPath(r.uri));
+        it->setData(0, IsfRole, true); // no file: not relinked
+        it->setData(0, MissingRole, !r.present);
+        it->setData(0, UsedRole, true); // not removable: it is there or it is not
+        it->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable | Qt::ItemIsDragEnabled);
+        it->setText(0, r.name);
+        it->setText(3, QStringLiteral("Unknown (live input)"));
+        it->setText(1, r.present ? r.kind : r.kind + QStringLiteral(" — not found"));
+        if (!r.present) it->setForeground(1, QColor(255, 110, 95));
+        const QStringList u = users.value(r.uri);
+        it->setData(0, UsersRole, int(u.size()));
+        it->setText(2, u.isEmpty() ? QStringLiteral("—") : QString::number(u.size()));
+        it->setTextAlignment(2, Qt::AlignCenter);
+        it->setToolTip(0, QStringLiteral("%1 input — %2\n%3").arg(r.kind, dragTip, r.uri) +
+                              (u.isEmpty() ? QString() : QStringLiteral("\nUsed by: ") + u.join(", ")));
+    }
+    group->setText(0, QStringLiteral("%1 (%2)").arg(title).arg(group->childCount()));
+    return true;
+}
+} // namespace
+
+// Video > Inputs: the cameras, the screens and windows, the DeckLink inputs, and the NDI, OMT, Syphon and Spout sources
 // announced now (looked for again every few seconds while the Media Bin is shown), with the layers that use them
 void MediaBin::refreshInputs()
 {
@@ -578,43 +652,109 @@ void MediaBin::refreshInputs()
             if (!used.contains(l->sourcePath)) used << l->sourcePath;
         }
     }
-    struct Row {
-        QString uri, name, kind;
-        bool present;
-    };
-    std::vector<Row> rows;
+    std::vector<InputRow> rows;
     for (const LiveInputInfo &i : found) rows.push_back({i.uri, i.name, i.kind, true});
     for (const QString &u : used) {
         bool there = false;
-        for (const Row &r : rows) there = there || r.uri == u;
+        for (const InputRow &r : rows) there = there || r.uri == u;
         if (!there) rows.push_back({u, liveInputName(u), liveInputKind(u), false});
     }
-    QStringList signature;
-    for (const Row &r : rows) signature << r.uri + (r.present ? "+" : "-") + users.value(r.uri).join(',');
-    if (signature == m_inputsSignature && m_inputs->childCount() == int(rows.size())) return; // as it is: no flicker
-    const SortingPause sorting(m_tree);
-    m_inputsSignature = signature;
-    while (m_inputs->childCount()) delete m_inputs->takeChild(0);
-    for (const Row &r : rows) {
-        auto *it = new BinItem(m_inputs);
-        it->setData(0, PathRole, liveInputPath(r.uri));
-        it->setData(0, IsfRole, true); // no file: not relinked
-        it->setData(0, MissingRole, !r.present);
-        it->setData(0, UsedRole, true); // not removable: it is there or it is not
-        it->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable | Qt::ItemIsDragEnabled);
-        it->setText(0, r.name);
-        it->setText(3, QStringLiteral("Unknown (live input)"));
-        it->setText(1, r.present ? r.kind : r.kind + QStringLiteral(" — not found"));
-        if (!r.present) it->setForeground(1, QColor(255, 110, 95));
-        const QStringList u = users.value(r.uri);
-        it->setData(0, UsersRole, int(u.size()));
-        it->setText(2, u.isEmpty() ? QStringLiteral("—") : QString::number(u.size()));
-        it->setTextAlignment(2, Qt::AlignCenter);
-        it->setToolTip(0, QStringLiteral("%1 input — drag it onto a layer\n%2").arg(r.kind, r.uri) +
-                              (u.isEmpty() ? QString() : QStringLiteral("\nUsed by: ") + u.join(", ")));
+    if (fillInputs(m_tree, m_inputs, &m_inputsSignature, rows, users, QStringLiteral("Inputs"), QStringLiteral("drag it onto a layer")))
+        applyFilter();
+}
+
+// Audio > Inputs: the sound inputs of the machine and those the layers use. Listing them opens the audio system, so it is
+// done every ten seconds, and at once when asked (`force`: a refresh after a change, the rebuild)
+void MediaBin::refreshAudioInputs(bool force)
+{
+    const qint64 now = QDateTime::currentMSecsSinceEpoch();
+    const bool list = force ? now - m_audioScanned > 1500 || m_audioScanned == 0 : now - m_audioScanned > 10000;
+    if (list) {
+        m_audioDevices.clear();
+        for (const LiveInputInfo &i : Engine::audioInputs()) m_audioDevices << i.name;
+        m_audioScanned = now;
     }
-    m_inputs->setText(0, QStringLiteral("Inputs (%1)").arg(m_inputs->childCount()));
-    applyFilter();
+    QHash<QString, QStringList> users;
+    QStringList used;
+    {
+        Engine::Lock lk(&m_engine->mutex());
+        for (int i = 0; i < m_engine->layerCount(); ++i) {
+            const Layer *l = m_engine->layer(i);
+            const SourceType t = l->type != SourceType::None ? l->type : l->missingType;
+            if (t != SourceType::Audio || !isAudioInputUri(l->sourcePath)) continue;
+            users[l->sourcePath] << l->name;
+            if (!used.contains(l->sourcePath)) used << l->sourcePath;
+        }
+    }
+    std::vector<InputRow> rows;
+    for (const QString &device : m_audioDevices) rows.push_back({audioInputUri(device), device, QStringLiteral("Audio"), true});
+    for (const QString &u : used) {
+        bool there = false;
+        for (const InputRow &r : rows) there = there || r.uri == u;
+        if (!there) rows.push_back({u, audioInputDevice(u).isEmpty() ? QStringLiteral("Default input") : audioInputDevice(u), QStringLiteral("Audio"), false});
+    }
+    if (fillInputs(m_tree, m_audioInputs, &m_audioInputsSignature, rows, users, QStringLiteral("Inputs"), QStringLiteral("drag it onto a layer")))
+        applyFilter();
+}
+
+// Audio > Generators: the built-in instruments, and the Faust programs (.dsp) and recipes the project uses or has imported;
+// the layers that use each
+void MediaBin::refreshAudioGenerators()
+{
+    const SortingPause sorting(m_tree);
+    QHash<QString, QStringList> users;
+    QStringList custom;
+    {
+        Engine::Lock lk(&m_engine->mutex());
+        for (int i = 0; i < m_engine->layerCount(); ++i) {
+            const Layer *l = m_engine->layer(i);
+            const SourceType t = l->type != SourceType::None ? l->type : l->missingType;
+            if (t == SourceType::Audio && AudioGenerator::isRecipe(l->sourcePath)) users[l->sourcePath] << l->name;
+        }
+    }
+    QStringList wanted;
+    for (const QString &p : m_engine->binItems())
+        if (AudioGenerator::isRecipe(p)) wanted << p;
+    for (auto u = users.begin(); u != users.end(); ++u) wanted << u.key();
+    wanted.removeDuplicates();
+    QHash<QString, QTreeWidgetItem *> existing;
+    for (int c = 0; c < m_audioGenerators->childCount(); ++c)
+        existing.insert(m_audioGenerators->child(c)->data(0, PathRole).toString(), m_audioGenerators->child(c));
+    const QString shipped = AudioResources::generatorsFolder();
+    for (const QString &p : wanted) {
+        const bool builtIn = !shipped.isEmpty() && QDir::cleanPath(QFileInfo(p).absolutePath()) == shipped;
+        if (builtIn || existing.contains(p)) continue;
+        auto *it = new BinItem(m_audioGenerators);
+        it->setData(0, PathRole, p);
+        it->setData(0, IsfRole, false); // a file: replaced, revealed
+        it->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable | Qt::ItemIsDragEnabled);
+        it->setText(0, QFileInfo(p).completeBaseName());
+        it->setTextAlignment(2, Qt::AlignCenter);
+        existing.insert(p, it);
+    }
+    for (int c = m_audioGenerators->childCount() - 1; c >= 0; --c) {
+        QTreeWidgetItem *it = m_audioGenerators->child(c);
+        const QString p = it->data(0, PathRole).toString();
+        const bool builtIn = !shipped.isEmpty() && QDir::cleanPath(QFileInfo(p).absolutePath()) == shipped;
+        if (!builtIn && !wanted.contains(p)) {
+            delete m_audioGenerators->takeChild(c);
+            continue;
+        }
+        const QStringList u = users.value(p);
+        const bool missing = !QFileInfo::exists(p);
+        it->setData(0, MissingRole, missing);
+        it->setData(0, UsersRole, int(u.size()));
+        it->setData(0, UsedRole, builtIn || !u.isEmpty());
+        it->setText(1, missing ? QStringLiteral("missing") : builtIn ? QString() : QStringLiteral("Faust"));
+        it->setText(2, u.isEmpty() ? QStringLiteral("—") : QString::number(u.size()));
+        it->setText(3, QStringLiteral("Unspecified (generated)"));
+        const QString usedBy = u.isEmpty() ? QStringLiteral("Not used by any layer") : QStringLiteral("Used by:\n") + u.join('\n');
+        it->setToolTip(0, (builtIn ? QStringLiteral("Real-time Faust instrument") : p) + QStringLiteral("\n\n") + usedBy);
+        it->setToolTip(2, usedBy);
+        const QColor fg = missing ? QColor(255, 110, 95) : QColor(225, 225, 228);
+        for (int col = 0; col < 4; ++col) it->setForeground(col, fg);
+    }
+    m_audioGenerators->setText(0, QStringLiteral("Generators (%1)").arg(m_audioGenerators->childCount()));
 }
 
 // The generators: the layers that use each
@@ -1005,6 +1145,8 @@ void MediaBin::rebuild()
     m_info.clear();
     for (auto p = m_probing.begin(); p != m_probing.end();) p = p.value() ? std::next(p) : m_probing.erase(p);
     m_inputsSignature.clear();
+    m_audioInputsSignature.clear();
+    m_audioScanned = 0;
     for (QTreeWidgetItem *cat : {m_videos, m_images, m_audios})
         for (int i = 0; i < cat->childCount(); ++i) cat->child(i)->setText(1, QStringLiteral("…"));
     emit rebuildRequested(); // the owner scans the ISF library again, then refreshes the bin
@@ -1015,11 +1157,8 @@ void MediaBin::applyFilter()
 {
     const QString f = m_search ? m_search->text().trimmed() : QString();
     const int usage = m_usage ? m_usage->currentIndex() : 0; // 0 all, 1 used, 2 unused
-    const int type = m_type ? m_type->currentIndex() : 0;
-    const QTreeWidgetItem *only = type == 1 ? m_videos : type == 2 ? m_images : type == 3 ? m_audios : type == 4 ? m_generators
-                                  : type == 5                                     ? m_inputs
-                                  : type == 6                                     ? m_isf
-                                                                                  : nullptr;
+    const int media = m_type ? m_type->currentIndex() : 0;   // 0 both, 1 video, 2 audio
+    const int kind = m_kind ? m_kind->currentIndex() : 0;    // 0 all, 1 files, 2 generators, 3 inputs, 4 ISF
     const bool filtering = !f.isEmpty() || usage != 0;
     // Leaves (media, shaders) match by name and use; a category stays visible if one of its items does
     std::function<bool(QTreeWidgetItem *)> visit = [&](QTreeWidgetItem *it) -> bool {
@@ -1038,9 +1177,22 @@ void MediaBin::applyFilter()
         if (filtering && any) it->setExpanded(true);
         return any || !filtering;
     };
-    for (int t = 0; t < m_tree->topLevelItemCount(); ++t) {
-        QTreeWidgetItem *top = m_tree->topLevelItem(t);
-        visit(top);
-        if (only) top->setHidden(top != only); // the chosen type shown, even empty
+    const QList<QTreeWidgetItem *> files{m_videos, m_images, m_audios}, generators{m_generators, m_audioGenerators},
+        inputs{m_inputs, m_audioInputs};
+    auto kindMatches = [&](const QTreeWidgetItem *group) {
+        return kind == 0 || (kind == 1 && files.contains(group)) || (kind == 2 && generators.contains(group)) ||
+               (kind == 3 && inputs.contains(group)) || (kind == 4 && group == m_isf);
+    };
+    for (QTreeWidgetItem *root : {m_videoRoot, m_audioRoot}) {
+        bool any = false;
+        for (int c = 0; c < root->childCount(); ++c) {
+            QTreeWidgetItem *group = root->child(c);
+            const bool shown = visit(group);
+            // The chosen kind is shown even empty; the other kinds are not
+            group->setHidden(!kindMatches(group) || (!shown && filtering));
+            any |= !group->isHidden();
+        }
+        const bool mediaMatches = media == 0 || (media == 1) == (root == m_videoRoot);
+        root->setHidden(!mediaMatches || (!any && (filtering || kind != 0)));
     }
 }

@@ -327,9 +327,10 @@ void Engine::applyParams(Layer &layer, const QJsonObject &params, const QJsonObj
                 }
                 continue;
             }
-            // A timecode that plays here and plays already goes on: not sent back to where it was when stored
+            // A timecode that plays here and plays already goes on: not sent back to where it was when stored. Except to 0: a
+            // position of 0 in a snapshot or a preset is a rewind, asked for
             if (path == QLatin1String("tc/position") && params.value("tc/play").toBool(true) && l->tcClock &&
-                l->tcClock->playing())
+                l->tcClock->playing() && it.value().toDouble() > 1e-9)
                 continue;
             // A countdown or a stopwatch likewise: one that runs here and runs already goes on
             if (path == QLatin1String("clock/elapsed") && params.value("clock/play").toBool(false) && l->clockGen &&

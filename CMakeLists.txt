@@ -76,6 +76,15 @@ add_library(nyxmap_engine STATIC
   src/engine/ToxTouchEngine.cpp
   src/engine/WebPage.cpp
   src/engine/Permissions.cpp
+  src/engine/FaustInterpreter.cpp
+  src/engine/AudioEffects.cpp
+  src/engine/AudioEffectEngine.cpp
+  src/engine/AudioGenerator.cpp
+  src/engine/BeatClock.cpp
+  src/engine/Controls.cpp
+  src/engine/RemoteServer.cpp
+  src/engine/AudioCapture.cpp
+  src/engine/AudioCaptureDevice.cpp
   src/engine/AudioStream.cpp
   src/engine/AudioOutput.cpp
   src/engine/AudioInput.cpp
@@ -116,6 +125,23 @@ add_library(nyxmap_engine STATIC
   src/engine/LayerParams.cpp
 )
 target_include_directories(nyxmap_engine PUBLIC src/engine)
+target_include_directories(nyxmap_engine PRIVATE "${CMAKE_SOURCE_DIR}/third_party/faust/architecture")
+# Built-in Faust instruments use portable generated C++; the optional interpreter
+# enables arbitrary user .dsp files without any compilation in the audio callback.
+option(NYXMAP_FAUST_COMPILER "Compile user Faust .dsp generators with libfaust" ON)
+if(NYXMAP_FAUST_COMPILER)
+  find_path(FAUST_COMPILER_INCLUDE_DIR faust/dsp/interpreter-dsp.h)
+  find_library(FAUST_COMPILER_LIBRARY NAMES faust libfaust)
+  find_path(FAUST_LIBRARY_PATH stdfaust.lib PATH_SUFFIXES share/faust faust)
+  if(FAUST_COMPILER_INCLUDE_DIR AND FAUST_COMPILER_LIBRARY AND FAUST_LIBRARY_PATH)
+    target_include_directories(nyxmap_engine PRIVATE "${FAUST_COMPILER_INCLUDE_DIR}")
+    target_compile_definitions(nyxmap_engine PUBLIC NYXMAP_FAUST_COMPILER)
+    target_compile_definitions(nyxmap_engine PRIVATE NYXMAP_FAUST_LIBRARY_PATH="${FAUST_LIBRARY_PATH}" NYXMAP_FAUST_LIBRARY_FILE="${FAUST_COMPILER_LIBRARY}")
+  else()
+    message(STATUS "libfaust compiler not found: built-in audio instruments available; user .dsp loading disabled")
+  endif()
+endif()
+
 option(NYXMAP_HAND_TRACKING "OpenCV DNN / MediaPipe hand landmark tracking" ON)
 if(NYXMAP_HAND_TRACKING)
   find_package(OpenCV QUIET COMPONENTS core imgproc dnn)
@@ -173,6 +199,7 @@ endfunction()
 # ---------------------------------------------------------------------------
 # Audio output: miniaudio (single header, public domain / MIT-0), compiled in src/engine/MiniaudioImpl.cpp
 # ---------------------------------------------------------------------------
+nyxmap_submodule(faust architecture/faust/dsp/dsp.h)
 nyxmap_submodule(miniaudio miniaudio.h)
 target_include_directories(nyxmap_engine PRIVATE "${CMAKE_SOURCE_DIR}/third_party/miniaudio")
 target_compile_definitions(nyxmap_engine PRIVATE MA_NO_DECODING MA_NO_ENCODING MA_NO_GENERATION MA_NO_ENGINE
@@ -348,6 +375,8 @@ set(APP_SOURCES
   src/ui/MainWindow.cpp
   src/ui/LogPanel.cpp
   src/ui/LogModel.cpp
+  src/ui/ControlsPanel.cpp
+  src/ui/FxChainPanel.cpp
   src/ui/LayerInspector.cpp
   src/ui/ParamPanel.cpp
   src/ui/PresetEditor.cpp
@@ -411,13 +440,16 @@ if(APPLE)
     MACOSX_BUNDLE_LONG_VERSION_STRING "${NYXMAP_VERSION}"
     MACOSX_BUNDLE_INFO_PLIST "${CMAKE_SOURCE_DIR}/cmake/Info.plist.in") # with the camera's usage text
   set(ISF_DEST "$<TARGET_FILE_DIR:NyxMap>/../Resources/isf")
+  set(AUDIO_DEST "$<TARGET_FILE_DIR:NyxMap>/../Resources/audio")
 elseif(WIN32)
   add_executable(NyxMap WIN32 ${APP_SOURCES} assets/NyxMap.rc)
   target_include_directories(NyxMap PRIVATE "${CMAKE_SOURCE_DIR}/assets")
   set(ISF_DEST "$<TARGET_FILE_DIR:NyxMap>/isf")
+  set(AUDIO_DEST "$<TARGET_FILE_DIR:NyxMap>/audio")
 else()
   add_executable(NyxMap ${APP_SOURCES})
   set(ISF_DEST "$<TARGET_FILE_DIR:NyxMap>/isf")
+  set(AUDIO_DEST "$<TARGET_FILE_DIR:NyxMap>/audio")
 endif()
 
 # The source revision, for endurance-session comparison: regenerated at every build (cmake/BuildSha.cmake), not
@@ -459,9 +491,16 @@ endif()
 
 # Copy the bundled ISF shaders next to the executable (or into the macOS bundle).
 # The folder is emptied first so renamed or deleted shaders do not linger in the build.
+if(APPLE)
+  # Remove legacy copies from incremental bundles: codesign treats .dsp files
+  # under Contents/MacOS as nested code rather than data.
+  add_custom_command(TARGET NyxMap POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E rm -rf "$<TARGET_FILE_DIR:NyxMap>/audio")
+endif()
 add_custom_command(TARGET NyxMap POST_BUILD
-  COMMAND ${CMAKE_COMMAND} -E rm -rf "${ISF_DEST}"
-  COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_SOURCE_DIR}/isf" "${ISF_DEST}")
+  COMMAND ${CMAKE_COMMAND} -E rm -rf "${ISF_DEST}" "${AUDIO_DEST}"
+  COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_SOURCE_DIR}/isf" "${ISF_DEST}"
+  COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_SOURCE_DIR}/audio" "${AUDIO_DEST}")
 
 # Windows: the FFmpeg DLLs must be next to NyxMap.exe
 if(WIN32 AND FFMPEG_ROOT)
@@ -588,6 +627,46 @@ if(NYXMAP_TESTS)
   # CTest: each targeted area in a process of its own (a new engine).
   # Test media first: sh test/make_media.sh
   enable_testing()
+  add_executable(nyxmap_audio_resources_test test/audio_resources.cpp)
+  target_include_directories(nyxmap_audio_resources_test PRIVATE src/engine)
+  target_link_libraries(nyxmap_audio_resources_test PRIVATE Qt6::Core)
+  add_test(NAME audio_resources COMMAND nyxmap_audio_resources_test)
+  add_executable(nyxmap_audio_generators_test test/audio_generators.cpp)
+  target_link_libraries(nyxmap_audio_generators_test PRIVATE nyxmap_engine)
+  add_test(NAME audio_generators COMMAND nyxmap_audio_generators_test)
+  # Test the dependency-free generated backend even on hosts with libfaust installed.
+  add_executable(nyxmap_audio_generators_portable_test test/audio_generators.cpp src/engine/AudioGenerator.cpp src/engine/FaustInterpreter.cpp src/engine/AudioEffects.cpp src/engine/AudioStream.cpp src/engine/AudioCapture.cpp test/portable_audio_capture.cpp)
+  target_include_directories(nyxmap_audio_generators_portable_test PRIVATE src/engine third_party/faust/architecture)
+  target_link_libraries(nyxmap_audio_generators_portable_test PRIVATE Qt6::Core ffmpeg)
+  add_test(NAME audio_generators_portable COMMAND nyxmap_audio_generators_portable_test)
+  add_executable(nyxmap_audio_generator_engine_test test/audio_generator_engine.cpp)
+  target_link_libraries(nyxmap_audio_generator_engine_test PRIVATE nyxmap_engine)
+  add_test(NAME audio_generator_engine COMMAND nyxmap_audio_generator_engine_test)
+  add_executable(nyxmap_remote_server_test test/remote_server.cpp)
+  target_link_libraries(nyxmap_remote_server_test PRIVATE nyxmap_engine)
+  add_test(NAME remote_server COMMAND nyxmap_remote_server_test)
+  set_tests_properties(remote_server PROPERTIES TIMEOUT 120)
+  add_executable(nyxmap_show_controls_test test/show_controls.cpp)
+  target_link_libraries(nyxmap_show_controls_test PRIVATE nyxmap_engine)
+  add_test(NAME show_controls COMMAND nyxmap_show_controls_test)
+  set_tests_properties(show_controls PROPERTIES TIMEOUT 60)
+  add_executable(nyxmap_beat_clock_test test/beat_clock.cpp)
+  target_link_libraries(nyxmap_beat_clock_test PRIVATE nyxmap_engine)
+  add_test(NAME beat_clock COMMAND nyxmap_beat_clock_test)
+  set_tests_properties(beat_clock PROPERTIES TIMEOUT 60)
+  add_executable(nyxmap_audio_hits_test test/audio_hits.cpp)
+  target_include_directories(nyxmap_audio_hits_test PRIVATE src/engine)
+  add_test(NAME audio_hits COMMAND nyxmap_audio_hits_test)
+  set_tests_properties(audio_hits PROPERTIES TIMEOUT 120)
+  add_executable(nyxmap_audio_levels_test test/audio_levels.cpp)
+  target_link_libraries(nyxmap_audio_levels_test PRIVATE nyxmap_engine)
+  add_test(NAME audio_levels COMMAND nyxmap_audio_levels_test)
+  set_tests_properties(audio_levels PROPERTIES TIMEOUT 60)
+  add_executable(nyxmap_audio_effects_test test/audio_effects.cpp)
+  target_link_libraries(nyxmap_audio_effects_test PRIVATE nyxmap_engine)
+  add_test(NAME audio_effects COMMAND nyxmap_audio_effects_test)
+  set_tests_properties(audio_effects PROPERTIES TIMEOUT 60)
+  set_tests_properties(audio_generators audio_generators_portable audio_generator_engine PROPERTIES TIMEOUT 60)
   add_executable(nyxmap_vision_analysis_test test/vision_analysis.cpp)
   target_link_libraries(nyxmap_vision_analysis_test PRIVATE nyxmap_engine)
   add_test(NAME vision_analysis COMMAND nyxmap_vision_analysis_test)
@@ -772,7 +851,7 @@ if(NYXMAP_TESTS)
   add_test(NAME line_ui COMMAND nyxmap_line_ui_test)
   set(WORKSPACE_TEST_SOURCES ${APP_SOURCES})
   list(REMOVE_ITEM WORKSPACE_TEST_SOURCES src/main.cpp)
-  add_executable(nyxmap_workspace_ui_test test/workspace_ui.cpp test/xy_parameter_ui.cpp test/color_parameter_ui.cpp test/clock_preset_ui.cpp test/layer_source_ui.cpp ${WORKSPACE_TEST_SOURCES})
+  add_executable(nyxmap_workspace_ui_test test/workspace_ui.cpp test/xy_parameter_ui.cpp test/color_parameter_ui.cpp test/clock_preset_ui.cpp test/layer_source_ui.cpp test/audio_fx_ui.cpp test/controls_ui.cpp ${WORKSPACE_TEST_SOURCES})
   target_include_directories(nyxmap_workspace_ui_test PRIVATE src src/ui "${CMAKE_BINARY_DIR}/generated")
   # Without Qt WebEngine (WebPageQt.cpp compiled empty): the Media Bin then does not offer the Web Page generator
   target_link_libraries(nyxmap_workspace_ui_test PRIVATE nyxmap_engine Qt6::Widgets Qt6::OpenGLWidgets)
@@ -783,6 +862,10 @@ if(NYXMAP_TESTS)
   add_test(NAME workspace_ui COMMAND nyxmap_workspace_ui_test)
   add_test(NAME clock_preset_ui COMMAND nyxmap_workspace_ui_test --clock-presets)
   add_test(NAME layer_source_ui COMMAND nyxmap_workspace_ui_test --layer-source)
+  add_test(NAME controls_ui COMMAND nyxmap_workspace_ui_test --controls)
+  set_tests_properties(controls_ui PROPERTIES TIMEOUT 60)
+  add_test(NAME audio_fx_ui COMMAND nyxmap_workspace_ui_test --audio-fx)
+  set_tests_properties(audio_fx_ui PROPERTIES TIMEOUT 60)
   add_test(NAME system_isf_ui COMMAND nyxmap_workspace_ui_test --system-isf)
   set_tests_properties(clock_preset_ui PROPERTIES TIMEOUT 60)
   add_test(NAME xy_parameter_ui COMMAND nyxmap_workspace_ui_test --xy)

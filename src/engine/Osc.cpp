@@ -131,6 +131,8 @@ QString OscNamespace::signature() const
         s += QStringLiteral("preset:%1:%2\n").arg(preset.id).arg(preset.name);
     }
     s += QStringLiteral("cues:%1\n").arg(m_e->sequencer().revision());
+    for (const ShowControl &c : m_e->controls()) // their addresses and kinds, not their values
+        s += QStringLiteral("control:%1:%2:%3:%4:%5:%6\n").arg(c.id).arg(c.key).arg(int(c.kind)).arg(c.min).arg(c.max).arg(c.choices.join(QLatin1Char(',')));
     auto kinds = [](const Interaction &it) {
         QStringList k;
         for (const InteractionStage &f : it.filters) k << interactionFilterKey(f.kind);
@@ -359,6 +361,84 @@ void OscNamespace::build()
             nm.get = [e, i] { return QVariantList{e->preset(i).name}; };
             m_nodes[base].description = e->preset(i).name.isEmpty() ? QString::number(i + 1) : e->preset(i).name;
         }
+    }
+
+    // --- Controls: the operator's sliders, switches, selectors, buttons and colors, at /control/<key>. A slider is a float
+    // within its range, a switch or a button an int 0 / 1 (a button is 1 while it is held), a selector an int (1 = the first
+    // choice), a color three floats 0..1
+    {
+        const std::vector<ShowControl> list = e->controls();
+        for (const ShowControl &c : list) {
+            const quint64 id = c.id;
+            const QString path = QStringLiteral("/control/") + c.key;
+            switch (c.kind) {
+            case ShowControl::Kind::Slider: {
+                OscNode &n = add(path, "f", 3, c.name);
+                n.range = {minMax(c.min, c.max)};
+                n.clip = "both";
+                n.get = [e, id] { const auto v = e->control(id); return QVariantList{v ? v->value : 0.0}; };
+                n.set = [e, id](const QVariantList &a) { return !a.isEmpty() && e->setControlValue(id, num(a[0])); };
+                break;
+            }
+            case ShowControl::Kind::Toggle:
+            case ShowControl::Kind::Button: {
+                OscNode &n = add(path, "i", 3, c.name);
+                n.range = {minMax(0, 1)};
+                n.clip = "both";
+                n.get = [e, id] { const auto v = e->control(id); return QVariantList{v && v->value >= 0.5 ? 1 : 0}; };
+                n.set = [e, id](const QVariantList &a) { return !a.isEmpty() && e->setControlValue(id, num(a[0]) != 0 ? 1.0 : 0.0); };
+                break;
+            }
+            case ShowControl::Kind::Choice: {
+                OscNode &n = add(path, "i", 3, c.name + QStringLiteral(" (1 = ") + c.choices.value(0) + QLatin1Char(')'));
+                n.range = {minMax(1, std::max<qsizetype>(1, c.choices.size()))};
+                n.clip = "both";
+                n.get = [e, id] { const auto v = e->control(id); return QVariantList{int(v ? v->value : 0) + 1}; };
+                n.set = [e, id](const QVariantList &a) { return !a.isEmpty() && e->setControlValue(id, std::lround(num(a[0])) - 1.0); };
+                break;
+            }
+            case ShowControl::Kind::Color: {
+                OscNode &n = add(path, "fff", 3, c.name);
+                n.range = {minMax(0, 1), minMax(0, 1), minMax(0, 1)};
+                n.clip = "both";
+                n.get = [e, id] {
+                    const auto v = e->control(id);
+                    return QVariantList{v ? v->rgb[0] : 1.0, v ? v->rgb[1] : 1.0, v ? v->rgb[2] : 1.0};
+                };
+                n.set = [e, id](const QVariantList &a) { return a.size() >= 3 && e->setControlColor(id, num(a[0]), num(a[1]), num(a[2])); };
+                break;
+            }
+            }
+        }
+        m_nodes["/control"].description = "Controls";
+    }
+
+    // --- Clock: the show's musical clock. bpm, bar length, start / stop / tap, where it is (beat, beat in the bar), and sync:
+    // a tempo and a position measured elsewhere (Ableton Link through a helper, a DAW): /clock/sync <beat> <bpm> [playing]
+    {
+        BeatClock &clock = e->beatClock();
+        OscNode &bpm = add("/clock/bpm", "f", 3, "Tempo (BPM)");
+        bpm.get = [&clock] { return QVariantList{clock.bpm()}; };
+        bpm.set = [&clock](const QVariantList &a) { clock.setBpm(num(a.value(0))); return true; };
+        OscNode &bar = add("/clock/bar", "i", 3, "Beats per bar");
+        bar.get = [&clock] { return QVariantList{clock.beatsPerBar()}; };
+        bar.set = [&clock](const QVariantList &a) { clock.setBeatsPerBar(int(std::lround(num(a.value(0))))); return true; };
+        add("/clock/start", "N", 2, "Start (from the first beat)").set = [&clock](const QVariantList &) { clock.start(); return true; };
+        add("/clock/stop", "N", 2, "Stop").set = [&clock](const QVariantList &) { clock.stop(); return true; };
+        add("/clock/resume", "N", 2, "Resume").set = [&clock](const QVariantList &) { clock.resume(); return true; };
+        add("/clock/tap", "N", 2, "Tap tempo").set = [&clock](const QVariantList &) { clock.tap(); return true; };
+        OscNode &running = add("/clock/running", "i", 1, "Running");
+        running.get = [&clock] { return QVariantList{clock.running() ? 1 : 0}; };
+        OscNode &beat = add("/clock/beat", "f", 1, "Position (beats)");
+        beat.get = [&clock] { return QVariantList{clock.beat()}; };
+        OscNode &inBar = add("/clock/beat_in_bar", "i", 1, "Beat in the bar (1 = first)");
+        inBar.get = [&clock] { return QVariantList{clock.beatInBar() + 1}; };
+        add("/clock/sync", "ffi", 2, "Tempo and position measured elsewhere: beat, bpm, playing").set = [&clock](const QVariantList &a) {
+            if (a.size() < 2) return false;
+            clock.sync(num(a.value(0)), num(a.value(1)), a.size() < 3 || num(a.value(2)) != 0);
+            return true;
+        };
+        m_nodes["/clock"].description = "Clock";
     }
 
     // --- Sequence: GO, GO BACK, a step of the current sequence (1 = first), where it is

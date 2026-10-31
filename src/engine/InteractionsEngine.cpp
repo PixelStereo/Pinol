@@ -409,6 +409,16 @@ void Engine::stepInteractions(double dt)
     const AudioAnalysis::Spectrum spectra[2]={needsSpectrum(false)?m_audio->spectrum():AudioAnalysis::Spectrum{},
                                               needsSpectrum(true)?m_audioInput->spectrum():AudioAnalysis::Spectrum{}};
     const AudioAnalysis::Values audios[2]={m_audio->analysis(),m_audioInput->analysis()};
+    // The flux of the last hops, read only when an interaction listens for hits (its own detector turns it into a trigger)
+    auto needsFlux = [this](bool input) {
+        const auto needs = [input](const Interaction &it) {
+            return it.source == InteractionSource::Audio && it.audioInput == input && it.audioFeature == Interaction::AudioFeature::Hit;
+        };
+        return std::any_of(m_interactions.begin(), m_interactions.end(), [&](const Interaction &it) {
+            return it.enabled && (needs(it) || (!it.xyInputs.empty() && needs(it.xyInputs.front())));
+        });
+    };
+    const OnsetFlux fluxes[2] = {needsFlux(false) ? m_audio->onsetFlux() : OnsetFlux{}, needsFlux(true) ? m_audioInput->onsetFlux() : OnsetFlux{}};
     // A show commonly maps the same few audio regions to several layers.
     // Integrate each exact region once per frame; fixed storage avoids heap work.
     struct BandSample { bool input; float low, high, value; };
@@ -433,7 +443,9 @@ void Engine::stepInteractions(double dt)
                 const AudioAnalysis::Values &audio = audios[it.audioInput];
                 values.push_back(it.audioFeature == Interaction::AudioFeature::Band
                                      ? bandValue(it.audioInput, float(it.audioLow), float(it.audioHigh))
-                                     : it.audioFeature == Interaction::AudioFeature::Level ? audio.level : audio.onset);
+                                     : it.audioFeature == Interaction::AudioFeature::Level ? audio.level
+                                     : it.audioFeature == Interaction::AudioFeature::Hit ? run.proc.hit(fluxes[it.audioInput], it, dt)
+                                                                                          : audio.onset);
             } else if (it.source == InteractionSource::Internal) {
                 if (const Parameter *src = findParameter(it.sourceLayer, it.sourceParam)) {
                     const double x = src->asNumber();
@@ -487,7 +499,9 @@ void Engine::stepInteractions(double dt)
                     const auto &audio = audios[input.audioInput];
                     const double raw = input.audioFeature == Interaction::AudioFeature::Band
                         ? bandValue(input.audioInput, float(input.audioLow), float(input.audioHigh))
-                        : input.audioFeature == Interaction::AudioFeature::Level ? audio.level : audio.onset;
+                        : input.audioFeature == Interaction::AudioFeature::Level ? audio.level
+                        : input.audioFeature == Interaction::AudioFeature::Hit ? proc.hit(fluxes[input.audioInput], input, dt)
+                                                                              : audio.onset;
                     proc.input(input, raw);
                     freshInput = true;
                 } else if (input.source == InteractionSource::Internal) {
@@ -551,7 +565,8 @@ void Engine::stepInteractions(double dt)
         } else if (it.source == InteractionSource::Audio) {
             const AudioAnalysis::Values &audio=audios[it.audioInput];
             const double x=it.audioFeature==Interaction::AudioFeature::Band?bandValue(it.audioInput,float(it.audioLow),float(it.audioHigh)):
-                it.audioFeature==Interaction::AudioFeature::Level?audio.level:audio.onset;
+                it.audioFeature==Interaction::AudioFeature::Level?audio.level:
+                it.audioFeature==Interaction::AudioFeature::Hit?run.proc.hit(fluxes[it.audioInput],it,dt):audio.onset;
             run.proc.input(it,x);
             fresh=true;
         } else if (it.source == InteractionSource::Internal) {
@@ -908,7 +923,9 @@ void Engine::makeInteractionParams()
              [parseRef](Interaction &x, const QString &v) { parseRef(v, &x.sourceLayer, &x.sourceParam); });
         number(QStringLiteral("source/audio/low"),QStringLiteral("Audio Low Hz"),20,20000,20,[](Interaction &x)->double &{return x.audioLow;}).limits(20,20000);
         number(QStringLiteral("source/audio/high"),QStringLiteral("Audio High Hz"),20,20000,20000,[](Interaction &x)->double &{return x.audioHigh;}).limits(20,20000);
-        choice(QStringLiteral("source/audio/feature"),QStringLiteral("Audio Measure"),{QStringLiteral("band"),QStringLiteral("level"),QStringLiteral("onset")},
+        number(QStringLiteral("source/audio/sensitivity"),QStringLiteral("Audio Hit Sensitivity"),0,1,0.5,[](Interaction &x)->double &{return x.audioSensitivity;}).limits(0,1);
+        number(QStringLiteral("source/audio/gap"),QStringLiteral("Audio Hit Minimum Gap"),0.04,2,0.08,[](Interaction &x)->double &{return x.audioGap;}).limits(0.04,2);
+        choice(QStringLiteral("source/audio/feature"),QStringLiteral("Audio Measure"),{QStringLiteral("band"),QStringLiteral("level"),QStringLiteral("onset"),QStringLiteral("hit")},
             [](const Interaction &x){return int(x.audioFeature);},[](Interaction &x,int k){x.audioFeature=Interaction::AudioFeature(k);});
         choice(QStringLiteral("source/audio/input"),QStringLiteral("Audio Source"),{QStringLiteral("program"),QStringLiteral("input")},
             [](const Interaction &x){return x.audioInput?1:0;},[](Interaction &x,int k){x.audioInput=k==1;});

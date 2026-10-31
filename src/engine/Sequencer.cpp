@@ -368,15 +368,17 @@ int Sequencer::positionOf(int index) const
 // Playing: pre-wait, action, post-wait, and what follows
 
 // A step's run, from its GO
-static Sequencer::Run runOf(const Sequencer::Step &st, int k, bool chain, quint64 owner)
+static Sequencer::Run runOf(const Sequencer::Step &st, int k, bool chain, quint64 owner, const BeatClock &clock, bool beats)
 {
     Sequencer::Run r;
     r.step = k;
     r.sequenceId = owner;
     r.target = st;
     r.snapshot = st.timeline ? 0 : st.snapshot;
-    r.preWait = chain ? std::max(0.0, st.preWait) : 0.0;
-    r.postWait = std::max(0.0, st.postWait);
+    // In beats: at the tempo of now. A GO that follows a grid waits for its line first, then the pre-wait counts
+    const double unit = beats ? clock.secondsPerBeat() : 1.0;
+    r.preWait = chain ? std::max(0.0, st.preWait) * unit + clock.secondsToNext(st.quantize) : 0.0;
+    r.postWait = std::max(0.0, st.postWait) * unit;
     r.next = chain ? st.next : Sequencer::StepContinue::Wait;
     return r;
 }
@@ -457,7 +459,7 @@ bool Sequencer::goToSequence(quint64 owner, int step, bool chain, std::shared_pt
                 [owner](const Run &r) { return r.sequenceId == owner; }), m_runs.end());
         }
         m_engine.resumeAfterStop(); // a deliberate GO must also release Escape before its pre-wait
-        Run r = runOf(st, step, chain, owner);
+        Run r = runOf(st, step, chain, owner, m_engine.beatClock(), s.beats);
         r.valid = commandTokenLocked(owner);
         r.duration = stepDuration(st);
         m_runs.push_back(r);
@@ -837,7 +839,7 @@ void Sequencer::advance(double dt)
                 const int k = r.step + 1 < n ? r.step + 1 : s.loop ? 0 : -1;
                 if (k < 0) continue;
                 const Step &st = s.steps[size_t(k)];
-                Run x = runOf(st, k, true, r.sequenceId);
+                Run x = runOf(st, k, true, r.sequenceId, m_engine.beatClock(), s.beats);
                 x.valid = r.valid;
                 x.callers = r.callers;
                 x.elapsed = r.elapsed - at;
@@ -877,7 +879,7 @@ void Sequencer::advance(double dt)
                 const auto target = m_sequences[size_t(sequence)].steps.front();
                 const quint64 owner = st.sequence;
                 stopSequenceLocked(sequence); // Play sequence starts fresh, without an earlier pending follow
-                Run child = runOf(target, 0, true, owner);
+                Run child = runOf(target, 0, true, owner, m_engine.beatClock(), m_sequences[size_t(sequence)].beats);
                 child.valid = commandTokenLocked(owner);
                 child.duration = stepDuration(target);
                 child.callers = action.callers;
@@ -959,11 +961,12 @@ QJsonArray Sequencer::toJson() const
             if (!st.description.isEmpty()) o["description"] = st.description;
             if (st.preWait > 0) o["pre_wait"] = st.preWait;
             if (st.postWait > 0) o["post_wait"] = st.postWait;
+            if (st.quantize > 0) o["quantize"] = st.quantize;
             if (st.next != StepContinue::Wait) o["continue"] = st.next == StepContinue::Follow ? "follow" : "auto_follow";
             if (st.at >= 0) o["at"] = st.at;
             steps.append(o);
         }
-        QJsonObject so{{"id", QString::number(m_sequenceIds[size_t(out.size())])}, {"name", s.name}, {"loop", s.loop},
+        QJsonObject so{{"id", QString::number(m_sequenceIds[size_t(out.size())])}, {"name", s.name}, {"loop", s.loop}, {"beats", s.beats},
                        {"tracking", s.tracking}, {"steps", steps}};
         if (!s.clockParam.isEmpty()) so["timecode"] = QJsonObject{{"layer", QString::number(s.clockLayer)}, {"param", s.clockParam}};
         out.append(so);
@@ -992,6 +995,7 @@ void Sequencer::fromJson(const QJsonArray &a, int current)
         Sequence s;
         s.name = o.value("name").toString();
         s.loop = o.value("loop").toBool(false);
+        s.beats = o.value("beats").toBool(false);
         s.tracking = o.value("tracking").toBool(true);
         const QJsonObject clock = o.value("timecode").toObject();
         s.clockLayer = clock.value("layer").toString().toULongLong();
@@ -1020,6 +1024,7 @@ void Sequencer::fromJson(const QJsonArray &a, int current)
             st.description = so.value("description").toString();
             st.preWait = std::clamp(so.value("pre_wait").toDouble(0), 0.0, 3600.0);
             st.postWait = std::clamp(so.value("post_wait").toDouble(0), 0.0, 3600.0);
+            st.quantize = std::clamp(so.value("quantize").toDouble(0), 0.0, 64.0);
             const QString c = so.value("continue").toString();
             st.next = c == "follow" ? StepContinue::Follow : c == "auto_follow" ? StepContinue::AutoFollow : StepContinue::Wait;
             const double at = so.value("at").toDouble(-1);

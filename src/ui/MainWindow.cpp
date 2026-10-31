@@ -15,6 +15,8 @@
 #include "Engine.h"
 #include "LayerInspector.h"
 #include "LayerTable.h"
+#include "ControlsPanel.h"
+#include "RemoteServer.h"
 #include "InteractionPanel.h"
 #include "MappingView.h"
 #include "PreviewWorkspace.h"
@@ -221,6 +223,8 @@ MainWindow::MainWindow(Engine *engine, QWidget *parent) : QMainWindow(parent), m
     screenRate();
     connect(qApp, &QGuiApplication::primaryScreenChanged, this, screenRate);
     connect(m_settings, &SettingsPanel::oscChanged, this, &MainWindow::startOsc);
+    connect(m_settings, &SettingsPanel::remoteChanged, this, &MainWindow::startRemote);
+    connect(m_settings, &SettingsPanel::oscChanged, this, &MainWindow::startRemote); // it listens where OSC does
     // The sequence's state sent by OSC to a remote interface (Companion, TouchOSC…)
     m_feedback = new SequenceFeedback(m_engine, this);
     auto applyFeedback = [this] {
@@ -261,6 +265,14 @@ MainWindow::MainWindow(Engine *engine, QWidget *parent) : QMainWindow(parent), m
     connect(m_fixtures, &FixturePanel::projectEdited, this, &MainWindow::markDirty);
     m_interactions = new InteractionPanel(m_engine, m_undo);
     m_leftTabs->addTab(m_interactions, QStringLiteral("Interactions"));
+    m_controls = new ControlsPanel(m_engine, m_undo);
+    m_leftTabs->addTab(m_controls, QStringLiteral("Controls"));
+    connect(m_controls, &ControlsPanel::edited, this, &MainWindow::markDirty);
+    // The menu at the top of the inspector: the layer, group or viewport picked there is selected, as a click in the list does
+    connect(m_inspector, &LayerInspector::layerPickRequested, this, [this](quint64 id) {
+        const int index = m_engine->indexOfId(id);
+        if (index >= 0) selectLayer(index);
+    });
     m_logs = new LogPanel;
     m_leftTabs->addTab(m_logs, QStringLiteral("Logs"));
     // The Logs panel reads the events' ring (EventLog) a few times a second: no signal per message
@@ -268,6 +280,7 @@ MainWindow::MainWindow(Engine *engine, QWidget *parent) : QMainWindow(parent), m
     m_leftTabs->setTabToolTip(1, QStringLiteral("Layers (Shift+2)"));
     m_leftTabs->setTabToolTip(2, QStringLiteral("Interactions: keys, MIDI, OSC and values of the show driving others (Shift+3)"));
     m_leftTabs->setTabToolTip(3, QStringLiteral("Event log: OSC, MIDI and keyboard (Shift+4)"));
+    m_leftTabs->setTabToolTip(m_leftTabs->indexOf(m_controls), QStringLiteral("Controls: your own sliders, switches, selectors, buttons and colors, for interactions, timelines, OSC and the phone remote (Shift+5)"));
     connect(m_interactions, &InteractionPanel::edited, this, &MainWindow::markDirty);
     connect(m_interactions, &InteractionPanel::showRequested, this, [this] { m_leftTabs->setCurrentWidget(m_interactions); });
     m_leftTabs->tabBar()->setChangeCurrentOnDrag(true);
@@ -666,6 +679,7 @@ MainWindow::MainWindow(Engine *engine, QWidget *parent) : QMainWindow(parent), m
     syncOutputs();
     updateTitle();
     startOsc();
+    startRemote();
     restoreGeometry(s.value("ui/geometry").toByteArray());
     split->restoreState(s.value("ui/mainSplit2").toByteArray());
     top->restoreState(s.value("ui/topSplit2").toByteArray());
@@ -702,6 +716,11 @@ MainWindow::~MainWindow()
     m_engine->sequencer().setRecaller(nullptr);
     m_engine->sequencer().setPresetRecaller(nullptr);
     m_engine->sequencer().setRecallRecorder(nullptr);
+    if (m_remoteThread) {
+        QMetaObject::invokeMethod(m_remote, [this] { m_remote->stop(); }, Qt::BlockingQueuedConnection);
+        m_remoteThread->quit();
+        m_remoteThread->wait();
+    }
     if (m_oscThread) {
         QMetaObject::invokeMethod(m_osc, [this] { m_osc->stop(); }, Qt::BlockingQueuedConnection);
         m_oscThread->quit();
@@ -767,6 +786,7 @@ bool MainWindow::eventFilter(QObject *o, QEvent *e)
             if (k->key() == Qt::Key_2 || k->key() == Qt::Key_At || k->key() == Qt::Key_QuoteDbl) tab = 1;
             if (k->key() == Qt::Key_3 || k->key() == Qt::Key_NumberSign || k->key() == Qt::Key_sterling) tab = 2;
             if (k->key() == Qt::Key_4 || k->key() == Qt::Key_Dollar) tab = 3;
+            if (k->key() == Qt::Key_5 || k->key() == Qt::Key_Percent) tab = m_leftTabs->indexOf(m_controls);
             if (tab >= 0 && !k->isAutoRepeat()) {
                 m_leftTabs->setCurrentIndex(tab);
                 return true;
@@ -1522,7 +1542,9 @@ bool MainWindow::loadIntoLayer(int i, const QString &path)
         const QJsonObject before = m_engine->layerJson(i);
         const auto beforeAnimations = m_engine->captureAnimationTargets(m_engine->layerId(i));
         QString err;
-        if (!m_engine->setLayerInput(i, uri, &err)) {
+        // A sound card's input is a sound: the layer has no picture (its volume, its Audio FX, its levels)
+        const bool sound = isAudioInputUri(uri);
+        if (!(sound ? m_engine->setLayerAudio(i, uri, &err) : m_engine->setLayerInput(i, uri, &err))) {
             QMessageBox::warning(this, QStringLiteral("Input"), liveInputName(uri) + QStringLiteral(": ") + err);
             return false;
         }
@@ -2067,6 +2089,33 @@ void MainWindow::startOsc()
         Qt::BlockingQueuedConnection);
     m_settings->setOscStatus(on ? status : QStringLiteral("OSC off"));
     if (on) statusBar()->showMessage(status, 6000);
+}
+
+// The phone remote: its own thread, as OSC has, so that a phone is answered while the interface is busy
+void MainWindow::startRemote()
+{
+    if (!m_remoteThread) {
+        m_remoteThread = new QThread(this);
+        m_remoteThread->setObjectName("Remote");
+        m_remote = new RemoteServer(m_engine);
+        m_remote->moveToThread(m_remoteThread);
+        connect(m_remoteThread, &QThread::finished, m_remote, &QObject::deleteLater);
+        m_remoteThread->start();
+    }
+    const bool on = SettingsPanel::remoteEnabled();
+    const int port = SettingsPanel::remotePort();
+    const QString pin = SettingsPanel::remotePin(), listen = SettingsPanel::oscListen();
+    QString status;
+    QMetaObject::invokeMethod(
+        m_remote,
+        [this, on, port, pin, listen, &status] {
+            if (on) m_remote->start(quint16(port), pin, listen);
+            else m_remote->stop();
+            status = on ? m_remote->status() : QString();
+        },
+        Qt::BlockingQueuedConnection);
+    m_settings->setRemoteStatus(on ? status : QStringLiteral("Phone remote off"));
+    if (on) statusBar()->showMessage(status, 8000);
 }
 
 void MainWindow::setInOutAtPosition(bool in)

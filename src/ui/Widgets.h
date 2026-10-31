@@ -310,6 +310,32 @@ private:
     class QTreeWidget *m_tree;
 };
 
+// A small stereo level meter (VU): two thin bars, left over right, from -60 to +6 dBFS (green, then amber from -18,
+// red from -3, over full scale clipped), with a peak that holds for a moment. Fed with linear peaks (AudioMeter) a few
+// times a second; the tooltip tells the values. `compact` is for rows of a list.
+class LevelMeter : public QWidget
+{
+    Q_OBJECT
+public:
+    explicit LevelMeter(const QString &name = QString(), QWidget *parent = nullptr);
+    void setLevels(float left, float right); // linear peaks (1 = full scale)
+    float left() const { return m_level[0]; }
+    float right() const { return m_level[1]; }
+    // The scale as a fraction of the width, for a level in dBFS (tests, drawing)
+    static double position(double db);
+    QSize sizeHint() const override { return QSize(160, 14); }
+    QSize minimumSizeHint() const override { return QSize(40, 14); }
+
+protected:
+    void paintEvent(QPaintEvent *) override;
+
+private:
+    QString m_name;
+    float m_level[2] = {0, 0};
+    float m_hold[2] = {0, 0};
+    qint64 m_holdSince[2] = {0, 0};
+};
+
 // Disables every input widget below `root` (locked layer), except those with the "allowLocked" property.
 void lockInputs(QWidget *root, bool locked);
 

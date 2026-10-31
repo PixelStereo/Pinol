@@ -1,61 +1,12 @@
 #pragma once
+#include "OnsetAnalysis.h"
+#include "Published.h"
 #include <algorithm>
 #include <atomic>
 #include <array>
 #include <complex>
 #include <cmath>
 #include <cstdint>
-
-// A value one producer publishes and readers copy, never waiting for one another (see publish())
-template <class T> class Published {
-public:
-    T read() const {
-        // A pin protects the whole snapshot. The writer can never recycle a pinned slot. Acquisition is bounded for
-        // render-thread readers too: extreme contention returns a cleared value.
-        for (int attempt = 0; attempt < 3; ++attempt) {
-            auto &slot = m_slots[m_published.load(std::memory_order_acquire)];
-            const unsigned state = slot.users.fetch_add(1, std::memory_order_acquire);
-            if (!(state & writing)) {
-                T result = slot.value;
-                slot.users.fetch_sub(1, std::memory_order_release);
-                return result;
-            }
-            slot.users.fetch_sub(1, std::memory_order_release);
-        }
-        return {};
-    }
-    // Exactly one producer (process/reset, as for the FFT ring itself).
-    // Multiple readers may pin the same slot. A reader arriving after writer
-    // ownership only touches the atomic counter, never the snapshot. Subtract
-    // the writer bit on release instead of storing zero: failed reader pins
-    // may still be in flight and must retain their counts until they withdraw.
-    void publish(const T &value) {
-        const unsigned current = m_published.load(std::memory_order_relaxed);
-        for (unsigned offset = 1; offset < m_slots.size(); ++offset) {
-            const unsigned next = (current + offset) % m_slots.size();
-            auto &slot = m_slots[next];
-            unsigned empty = 0;
-            if (!slot.users.compare_exchange_strong(empty, writing,
-                    std::memory_order_acquire, std::memory_order_relaxed)) continue;
-            slot.value = value;
-            slot.users.fetch_sub(writing, std::memory_order_release);
-            m_published.store(next, std::memory_order_release);
-            return;
-        }
-        // Slow readers may retain both inactive snapshots. Keep the previous
-        // complete publication; the audio callback must never wait for them.
-    }
-private:
-    static constexpr unsigned writing = 1u << 31;
-    struct SnapshotSlot {
-        T value;
-        mutable std::atomic<unsigned> users{0};
-    };
-    static_assert(std::atomic<unsigned>::is_always_lock_free,
-                  "Audio publication requires lock-free counters");
-    std::array<SnapshotSlot, 3> m_slots{};
-    std::atomic<unsigned> m_published{0};
-};
 
 // Audio-thread processing: fixed storage; no allocation, locks or callbacks.
 // Readers see normalized, smoothed program-audio energy before the master fader.
@@ -95,6 +46,8 @@ public:
 
     }
     Spectrum spectrum() const { return m_spectra.read(); }
+    // The flux of the last hops, per band: what hit detection (OnsetDetector) reads, per interaction
+    OnsetFlux onsetFlux() const { return m_onsets.read(); }
     // The last waveSize frames heard, per channel (-1..1), republished every waveHop frames: what an ISF "audio"
     // input shows
     static constexpr int waveSize = 2048, waveHop = 256;
@@ -145,6 +98,7 @@ public:
         m_spectra.publish(cleared);
         m_waves.publish(Wave{});
         m_slow=0; m_level=0; m_bass=0; m_mid=0; m_high=0; m_onset=0;
+        m_onsets.reset();
     }
     void process(const float *stereo,int frames,int rate) {
         if(!stereo||frames<=0||rate<=0)return;
@@ -152,6 +106,7 @@ public:
         const float low=1-std::exp(float(-2*pi*180/rate)), upper=1-std::exp(float(-2*pi*2500/rate));
         double energy[4]={};
         if(m_rate!=rate){m_rate=rate;reset();}
+        m_onsets.process(stereo,frames,rate);
         for(int i=0;i<frames;++i) {
           for(int c=0;c<2;++c) {
             float x=stereo[2*i+c]; if(!std::isfinite(x))x=0;
@@ -210,6 +165,7 @@ private:
     std::array<std::complex<float>,fftSize/2> m_twiddle{};
     Published<Spectrum> m_spectra;
     Published<Wave> m_waves;
+    OnsetAnalysis m_onsets;
     int m_rate=48000;
     int m_write=0,m_filled=0,m_hop=0,m_waveHop=0;
     float m_low[2]={},m_upper[2]={},m_slow=0;

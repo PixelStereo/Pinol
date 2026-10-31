@@ -11,9 +11,13 @@ class QLineEdit;
 class QComboBox;
 class QToolButton;
 
-// Media Bin: the project's video, image and audio files (used by layers or imported), grouped by type — image
-// sequences (folders) and network streams (URLs) among the videos —, the Text
-// generator, the live inputs, and the ISF generators of the library (ISF > Generators). Items are dragged onto layers to load them.
+// Media Bin: two roots, Video and Audio, and below each what a layer can load.
+//   Video: Videos (image sequences and network streams among them), Images, Generators (Text, Timecode, Countdown,
+//          Stopwatch, Clock, Line, Web Page), Inputs (cameras, screens, NDI, OMT, Syphon, Spout, DeckLink),
+//          ISF (the shaders of the library)
+//   Audio: Sounds (files), Generators (the Faust instruments and the .dsp programs), Inputs (sound card inputs)
+// Items are dragged onto layers to load them. The search, the media (All / Video / Audio), the kind (Files /
+// Generators / Inputs / ISF) and the use filters narrow the tree.
 class MediaBin : public QWidget
 {
     Q_OBJECT
@@ -37,7 +41,9 @@ private:
     void probe(const QString &path);
     void refreshIsf();
     void refreshText(); // Text: its users
-    void refreshInputs(); // Inputs: the live sources there now, and those the layers use
+    void refreshInputs(); // Video > Inputs: the live sources there now, and those the layers use
+    void refreshAudioInputs(bool force = false); // Audio > Inputs: the sound card inputs, and those the layers use
+    void refreshAudioGenerators(); // Audio > Generators: the built-in instruments, the .dsp programs of the project, their users
     void updateButtons();
     void importDialog();
     void importSequenceDialog(); // a folder of numbered pictures
@@ -51,16 +57,21 @@ private:
 
     Engine *m_engine;
     QTreeWidget *m_tree;
+    QTreeWidgetItem *m_videoRoot, *m_audioRoot;
     QTreeWidgetItem *m_videos, *m_images, *m_audios, *m_generators, *m_text, *m_timecode, *m_line, *m_web, *m_inputs, *m_isf, *m_isfGenerators;
+    QTreeWidgetItem *m_audioGenerators, *m_audioInputs;
     QTreeWidgetItem *m_clocks[3] = {}; // Countdown, Stopwatch, Clock (ClockKind)
     QPushButton *m_relink, *m_remove, *m_reveal;
     QLabel *m_summary;
     QLineEdit *m_search = nullptr;
-    QComboBox *m_type = nullptr;  // All, or one category (Videos, Images, Audio, Generators, Inputs, ISF)
+    QComboBox *m_type = nullptr;  // The media: All, Video, Audio
+    QComboBox *m_kind = nullptr;  // What of it: All, Files, Generators, Inputs, ISF
     QComboBox *m_usage = nullptr; // All, Used (by a layer), Unused
     QToolButton *m_rebuild = nullptr;
     bool m_isfOpened = false; // ISF > Generators expanded once filled
     QHash<QString, QString> m_info;  // path -> description (resolution, duration…)
     QHash<QString, bool> m_probing;
-    QStringList m_inputsSignature;
+    QStringList m_inputsSignature, m_audioInputsSignature;
+    QStringList m_audioDevices;
+    qint64 m_audioScanned = 0; // when the sound inputs were listed (ms): listing opens the audio system, not every 3 s
 };

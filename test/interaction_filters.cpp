@@ -105,6 +105,93 @@ int runInteractionFilterTests(Engine &e)
         check(y < 0.02, "still: no speed");
     }
 
+    // Hit: an Audio source that is a trigger at each hit of a frequency region, set and saved with its sensitivity and gap
+    {
+        Interaction it = Interaction::made(InteractionSource::Audio);
+        it.audioFeature = Interaction::AudioFeature::Hit;
+        it.audioLow = 30;
+        it.audioHigh = 200;
+        it.audioSensitivity = 0.8;
+        it.audioGap = 0.12;
+        const Interaction again = Interaction::fromJson(it.toJson());
+        check(again.audioFeature == Interaction::AudioFeature::Hit && near(again.audioSensitivity, 0.8) && near(again.audioGap, 0.12) &&
+                  near(again.audioLow, 30) && near(again.audioHigh, 200),
+              "a Hit source is written and read back with its sensitivity and gap");
+        check(it.label().contains("hits"), "and named for what it hears");
+        auto junk = it.toJson();
+        junk["audio_sensitivity"] = 9.0;
+        junk["audio_gap"] = -3.0;
+        const Interaction clamped = Interaction::fromJson(junk);
+        check(near(clamped.audioSensitivity, 1.0) && near(clamped.audioGap, 0.04), "a hand-edited sensitivity and gap are kept in range");
+        InteractionProcessor p;
+        check(p.hit(OnsetFlux{}, it, 0.01) == 0, "a processor with no flux hears no hit");
+    }
+
+    // Envelope: a trigger in, an ADSR out
+    {
+        auto envelope = [](double attack, double decay, double sustain, double release) {
+            InteractionStage s = InteractionStage::made(InteractionFilter::Envelope);
+            s.a = attack;
+            s.b = decay;
+            s.c = sustain;
+            s.d = release;
+            return s;
+        };
+        auto run = [](Interaction &it, InteractionProcessor &p, double x, double seconds) { // the level at the end
+            double y = 0;
+            const int steps = std::max(1, int(seconds * 60));
+            for (int k = 0; k < steps; ++k) {
+                p.input(it, x);
+                y = *p.step(it, 1.0 / 60);
+            }
+            return y;
+        };
+        {
+            // An impact: it fires on the press and ends by itself, the key still held
+            Interaction it = Interaction::made(InteractionSource::Keyboard);
+            it.filters = {envelope(0.05, 0.2, 0, 0.3)};
+            InteractionProcessor p;
+            check(near(run(it, p, 0.0, 0.1), 0.0), "an envelope is silent until triggered");
+            const double up = run(it, p, 1.0, 0.04); // two frames into its 50 ms attack
+            check(up > 0.45 && up <= 1.0, "attack rises on the press");
+            check(run(it, p, 1.0, 0.5) < 0.02, "a pulse (sustain 0) ends by itself while the key is held");
+            check(run(it, p, 1.0, 0.5) < 0.02, "and stays down until the next press");
+            run(it, p, 0.0, 0.1);
+            check(run(it, p, 1.0, 0.07) > 0.5, "released and pressed again: it fires again");
+        }
+        {
+            // ADSR: it holds its sustain while the key is down, releases when it is up
+            Interaction it = Interaction::made(InteractionSource::Keyboard);
+            it.filters = {envelope(0.01, 0.1, 0.5, 0.4)};
+            InteractionProcessor p;
+            const double held = run(it, p, 1.0, 1.0);
+            check(near(held, 0.5, 0.01), "sustain holds while the trigger is held");
+            const double releasing = run(it, p, 0.0, 0.1);
+            check(releasing > 0.05 && releasing < 0.5, "release falls, not at once");
+            check(run(it, p, 0.0, 0.6) == 0.0, "and ends exactly at 0");
+        }
+        {
+            // Velocity: the level the trigger came in at scales it; a retrigger goes on from where it is
+            Interaction it = Interaction::made(InteractionSource::Midi);
+            it.filters = {envelope(0.02, 0.5, 0.8, 0.5)};
+            InteractionProcessor p;
+            const double hit = run(it, p, 0.4, 0.05);
+            check(hit <= 0.4 + 1e-9 && hit > 0.3, "the trigger's level is the envelope's peak");
+            run(it, p, 0.0, 0.05);
+            const double before = run(it, p, 0.0, 0.01);
+            const double again = run(it, p, 0.4, 1.0 / 60);
+            check(again >= before * 0.8, "a retrigger does not jump");
+        }
+        {
+            Interaction it = Interaction::made(InteractionSource::Keyboard);
+            it.filters = {envelope(0.01, 0.2, 0.3, 0.4)};
+            const Interaction again = Interaction::fromJson(it.toJson());
+            check(again.filters == it.filters && again.filters[0].kind == InteractionFilter::Envelope &&
+                      interactionFilterKey(InteractionFilter::Envelope) == "envelope" && interactionFilterFromKey("envelope") == InteractionFilter::Envelope,
+                  "an envelope is written and read back");
+        }
+    }
+
     // Remap: a range to another (either way round), held at its ends; Toggle: on, off at each press
     check(near(through({InteractionStage::remap(0, 16, 100, 300)}, 4), 150), "remap into the target's units");
     check(near(through({InteractionStage::remap(0, 16, 100, 300)}, 20), 300) && near(through({InteractionStage::remap(0, 16, 100, 300)}, -3), 100),

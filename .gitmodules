@@ -18,3 +18,7 @@
 	path = third_party/rtmidi
 	url = https://github.com/thestk/rtmidi.git
 	shallow = true
+[submodule "third_party/faust"]
+	path = third_party/faust
+	url = https://github.com/grame-cncm/faust.git
+	shallow = true

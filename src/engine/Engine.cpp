@@ -564,6 +564,7 @@ void Engine::releaseAll()
     }
     auto f = gl();
     for (RenderTarget &o : m_output) o.destroy();
+    m_audioVisual.destroy();
     m_previewTarget.destroy();
     for (auto &slot : m_previewSlots) {
         for (auto &target : slot.target) target.destroy();

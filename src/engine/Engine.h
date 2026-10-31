@@ -17,6 +17,8 @@
 
 #include "TestCard.h"
 #include "PresentMetal.h"
+#include "BeatClock.h"
+#include "ShowControl.h"
 #include "Sequencer.h"
 #include "FrameTiming.h"
 #include "AudioInput.h"
@@ -151,6 +153,13 @@ public:
     QJsonObject layerJson(int i) const;
     int insertLayerJson(int at, const QJsonObject &o);
     void replaceLayerJson(int i, const QJsonObject &o);
+    // The viewport a Video Sonification instrument analyses: its id (0: the first viewport). False for a layer that is not
+    // a sound, or an id that is not a viewport
+    bool setLayerSonificationViewport(int i, quint64 viewportId);
+    quint64 layerSonificationViewport(int i) const;
+    QJsonArray audioEffectsJson(int i) const;
+    std::vector<std::shared_ptr<class AudioEffect>> audioEffects(quint64 layerId) const; // the chain of a layer, in order
+    bool setAudioEffectsJson(int i, const QJsonArray &state, QString *error = nullptr, bool keepUnavailable = false);
     QJsonArray effectsJson(int i) const;
     void setEffectsJson(int i, const QJsonArray &a);
 
@@ -335,6 +344,9 @@ public:
     void reloadLayerWeb(int i);
     QString layerWebStatus(int i) const; // what its page is doing (loading, failed…); empty: it is shown
     static std::vector<LiveInputInfo> liveInputs(const QString &libraryFolder = QString()) { return listLiveInputs(libraryFolder); }
+    // The sound inputs (microphones, sound card inputs), the default one first: Audio > Inputs of the Media Bin.
+    // Their URIs are input:audio:<device> (AudioCapture.h); kind "Audio"
+    static std::vector<LiveInputInfo> audioInputs();
     void setLayerTextContent(int i, const QString &text);
     void editLayerText(int i, const std::function<void(Layer &)> &edit); // style (bold, outline, shadow…), under the lock
 
@@ -570,6 +582,22 @@ public:
     void waveAround(quint64 layer, const QString &param, double *center, double *amplitude) const;
 
     // --- Sequences (the cue lists): Sequencer.h
+    // The show's controls (ShowControl.h): sliders, switches, selectors, buttons and colors of the operator, each a parameter
+    // of the show (control/<key>) that interactions, timelines, OSC and a remote reach. Saved with the project
+    std::vector<ShowControl> controls() const;
+    std::optional<ShowControl> control(quint64 id) const;
+    QJsonArray controlsJson() const;
+    bool setControlsJson(const QJsonArray &a, QString *error = nullptr); // replaces them all (undo, project, a remote)
+    quint64 controlsRevision() const { return m_controlsRevision; } // changes with the list or a definition, not a value
+    quint64 addControl(const ShowControl &control); // its id (0: too many); its key is made from its name
+    bool updateControl(quint64 id, const ShowControl &change); // its address (key) stays
+    bool removeControl(quint64 id);
+    bool moveControl(quint64 id, int to);
+    bool setControlValue(quint64 id, double value); // a number, a switch, an index; any thread
+    bool setControlColor(quint64 id, double r, double g, double b);
+    // The show's musical clock (tempo, bar, position in beats): steps counted in beats and quantized (Sequencer), OSC /clock
+    BeatClock &beatClock() { return m_beatClock; }
+    const BeatClock &beatClock() const { return m_beatClock; }
     Sequencer &sequencer() { return *m_sequencer; }
     const Sequencer &sequencer() const { return *m_sequencer; }
     // A snapshot's action: its longest time (the fade, and the times of its own values)
@@ -812,6 +840,7 @@ signals:
     void snapshotsChanged();
     void presetsChanged();
     void animationsChanged();       // the timelines' contents (not their transport)
+    void controlsChanged();         // the list or the definition of a control (not its value)
     void layerAnimsChanged(quint64 layer); // the animations of a layer's numbers (their contents, not their transport)
     void snapshotRecalled(int index);
     void timecodeRoutingChanged(); // timecode / MIDI outputs, their patch, or which layer drives which output
@@ -996,6 +1025,7 @@ private:
     };
     std::array<PreviewSlot, 4> m_previewSlots;
     RenderTarget m_output[2];
+    RenderTarget m_audioVisual; // 16x16 live composition tap, render thread only
     std::atomic<int> m_published{0};
     int m_back = 1;
 
@@ -1113,6 +1143,11 @@ private:
     void assignLayerAnims(Layer &l, const std::vector<Animation> &anims); // see setLayerAnims (lock held)
     void recallLayerAnims(Layer &l, const QJsonArray &stored);            // a snapshot's (lock held)
     void recallSnapshotCopy(const Snapshot &m, int index);                 // recallSnapshot, its copy taken
+    BeatClock m_beatClock;
+    std::vector<ShowControl> m_controls;
+    quint64 m_nextControlId = 1;
+    std::atomic<quint64> m_controlsRevision{0}; // read by the remote's thread
+    ShowControl *controlLocked(quint64 id);
     Sequencer *m_sequencer = nullptr; // a child QObject
     std::atomic<bool> m_fadesManual{false};
     void attachAudio(Layer &l, std::shared_ptr<AudioStream> s);

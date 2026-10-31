@@ -49,6 +49,7 @@ public:
     AudioAnalysis::Spectrum spectrum() const { return m_analysis.spectrum(); }
     AudioAnalysis::Wave wave() const { return m_analysis.wave(); }
     AudioAnalysis::Values analysis() const { return m_analysis.values(); }
+    OnsetFlux onsetFlux() const { return m_analysis.onsetFlux(); }
     float peak(int channel) const { return m_peak[channel & 1].load(); }
 
     // Tests: receives every mixed buffer (audio thread)

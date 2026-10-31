@@ -583,6 +583,7 @@ QString liveInputKind(const QString &uri)
     if (k == QLatin1String("screen")) return QStringLiteral("Screen");
     if (k == QLatin1String("window")) return QStringLiteral("Window");
     if (k == QLatin1String("test")) return QStringLiteral("Test");
+    if (k == QLatin1String("audio")) return QStringLiteral("Audio");
     return {};
 }
 

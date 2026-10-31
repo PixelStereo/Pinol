@@ -43,6 +43,7 @@
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QString>
+#include "OnsetAnalysis.h"
 #include <array>
 #include <deque>
 #include <optional>
@@ -51,9 +52,10 @@ enum class InteractionSource { Keyboard = 0, Midi, Osc, Internal, Audio, Pixels,
 inline constexpr int kInteractionSourceCount = 7;
 enum class InteractionFilter {
     Average = 0, WeightedAverage, PulseDetection, AttackRelease, Damper, // over time (as before: saved by these keys)
-    Curve, Math, Clamp, Steps, Threshold, Delay, Speed, Remap, Toggle
+    Curve, Math, Clamp, Steps, Threshold, Delay, Speed, Remap, Toggle,
+    Envelope // a trigger in, an ADSR out: Attack, Decay, Sustain, Release (the impact of a hit, a flash, a pulse)
 };
-inline constexpr int kInteractionFilterCount = 14;
+inline constexpr int kInteractionFilterCount = 15;
 inline constexpr int kFilterSettingCount = 4; // a, b, c, d (Remap: In Min, In Max, Out Min, Out Max)
 // A Math filter's operation on the value x, with its value a
 enum class MathOp { Add = 0, Subtract, Multiply, Divide, Modulo, Power, Min, Max, Abs, Floor, Ceil, Round, OneMinus };
@@ -156,8 +158,12 @@ struct Interaction {
     QString sourceParam;
     // Audio is the program mix before the master fader, or the live input (AudioInput); band limits in Hz.
     double audioLow = 20, audioHigh = 20000;
-    enum class AudioFeature { Band = 0, Level, Onset };
+    // Band: the level of the frequency region; Level: overall; Onset: how much attack there is (a smooth amount); Hit: a
+    // trigger at each hit in the frequency region, with its velocity (OnsetAnalysis.h), for an Envelope or an Action
+    enum class AudioFeature { Band = 0, Level, Onset, Hit };
     AudioFeature audioFeature = AudioFeature::Band;
+    double audioSensitivity = 0.5; // Hit: how faint a hit it hears (0..1)
+    double audioGap = 0.08;        // Hit: the shortest time between two hits (seconds)
     bool audioInput = false;
     PixelAnalysis::Settings pixels;
     PixelAnalysis::Feature pixelFeature = PixelAnalysis::Feature::Mean;
@@ -237,6 +243,11 @@ public:
     std::optional<double> curveInput() const { return m_curveIn; } // what entered the first curve on
     const std::vector<double> &stageOutputs() const { return m_stageOut; } // the value after each filter (shown)
     void reset() { *this = InteractionProcessor(); }
+    // The value of a Hit source: the pulse of this interaction's own detector, from the flux of its audio input
+    double hit(const OnsetFlux &flux, const Interaction &it, double dt)
+    {
+        return m_hit.step(flux, it.audioLow, it.audioHigh, it.audioSensitivity, it.audioGap, dt);
+    }
 
 private:
     // Each filter's state, made again when it is another kind of filter
@@ -244,8 +255,11 @@ private:
         InteractionFilter kind = InteractionFilter::Average;
         bool started = false, high = false;
         double y = 0, v = 0, slow = 0, prev = 0;     // its value, its speed (Damper), its slow average (Pulse), the last input
+        int phase = 0;                                // Envelope: 0 idle, 1 attack, 2 decay, 3 sustain, 4 release
+        double peak = 1;                              // Envelope: the level the trigger came in at (its velocity)
         std::deque<std::pair<double, double>> window; // Average, Delay: (time, value)
     };
+    OnsetDetector m_hit;             // a Hit source: what it learned of the sound
     std::optional<double> m_level;   // the source's last value
     bool m_fresh = false;            // a value came in since the last step
     double m_time = 0;

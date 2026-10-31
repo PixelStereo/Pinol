@@ -84,16 +84,22 @@ int main(int argc, char **argv)
           overviewStack.describe().contains("AUTO-FOLLOW"), "overview describes every outgoing mode");
     SequenceWindow editor(&engine);
     auto *steps = editor.findChild<QTableWidget *>("sequenceSteps");
-    check(steps && steps->horizontalHeader()->visualIndex(5) == 3 && steps->horizontalHeader()->visualIndex(1) == 2,
+    if (const QByteArray shots = qgetenv("NYXMAP_TEST_SHOTS"); !shots.isEmpty()) { // a picture of the window, for a look
+        editor.show();
+        editor.resize(1100, 420);
+        QCoreApplication::processEvents();
+        editor.grab().save(QString::fromLocal8Bit(shots) + "/sequences.png");
+    }
+    check(steps && steps->horizontalHeader()->visualIndex(6) == 3 && steps->horizontalHeader()->visualIndex(1) == 2,
           "continuation sits beside the target before timing columns");
     if (steps) {
-        check(steps->item(1, 5)->toolTip().contains("overlap"), "Follow explains that actions may overlap");
-        check(steps->item(2, 5)->toolTip().contains("endless"), "Auto-follow explains a non-terminating action");
-        steps->item(1, 5)->setData(Qt::EditRole, int(Sequencer::StepContinue::Wait));
-        check(steps->item(1, 5)->data(Qt::AccessibleTextRole).toString() == "WAIT · GO" &&
-              steps->item(1, 5)->toolTip().contains("manual"), "edited mode updates its accessible label and help");
+        check(steps->item(1, 6)->toolTip().contains("overlap"), "Follow explains that actions may overlap");
+        check(steps->item(2, 6)->toolTip().contains("endless"), "Auto-follow explains a non-terminating action");
+        steps->item(1, 6)->setData(Qt::EditRole, int(Sequencer::StepContinue::Wait));
+        check(steps->item(1, 6)->data(Qt::AccessibleTextRole).toString() == "WAIT · GO" &&
+              steps->item(1, 6)->toolTip().contains("manual"), "edited mode updates its accessible label and help");
         // The timecode, first: typed in seconds or minutes:seconds; an empty cell offers the time of the step before
-        const int at = 8;
+        const int at = 9; // ColAt
         auto edited = [&] { return engine.sequencer().sequence(engine.sequencer().current()); };
         check(steps->horizontalHeader()->visualIndex(at) == 1, "the timecode comes first");
         check(editor.proposedTimecode(0) == "0:00.00", "an empty cell offers 0 with nothing before it");

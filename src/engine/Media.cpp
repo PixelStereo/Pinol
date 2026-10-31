@@ -123,9 +123,17 @@ QString Engine::streamName(const QString &url)
     return name;
 }
 
+std::vector<LiveInputInfo> Engine::audioInputs()
+{
+    std::vector<LiveInputInfo> found;
+    for (const QString &device : AudioCapture::devices())
+        found.push_back({audioInputUri(device), device, QStringLiteral("Audio")});
+    return found;
+}
+
 QStringList Engine::audioExtensions()
 {
-    static const QStringList e = {"wav", "aif", "aiff", "aifc", "mp3", "m4a", "aac", "flac", "ogg", "oga", "opus", "wma", "caf", "w64"};
+    static const QStringList e = {"dsp", "nyxaudio", "wav", "aif", "aiff", "aifc", "mp3", "m4a", "aac", "flac", "ogg", "oga", "opus", "wma", "caf", "w64"};
     return e;
 }
 
@@ -171,7 +179,8 @@ std::vector<Engine::MediaRef> Engine::mediaUsage() const
         Lock lk(&m_mutex);
         for (const auto &l : m_layers) {
             const SourceType t = l->type != SourceType::None ? l->type : l->missingType;
-            if (t == SourceType::Video || t == SourceType::Image || t == SourceType::Audio || t == SourceType::Tox)
+            const bool listed = t != SourceType::Audio || (!isAudioInputUri(l->sourcePath) && !AudioGenerator::isRecipe(l->sourcePath));
+            if (listed && (t == SourceType::Video || t == SourceType::Image || t == SourceType::Audio || t == SourceType::Tox))
                 add(l->sourcePath, (t == SourceType::Video || t == SourceType::Tox) ? VideoKind : t == SourceType::Audio ? AudioKind : ImageKind,
                     l->name, false);
             auto scan = [&](const IsfInstance *inst, const QString &user) {

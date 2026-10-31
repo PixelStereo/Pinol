@@ -28,6 +28,7 @@ public:
     AudioAnalysis::Spectrum spectrum() const { return m_analysis.spectrum(); }
     AudioAnalysis::Wave wave() const { return m_analysis.wave(); }
     AudioAnalysis::Values analysis() const { return m_analysis.values(); }
+    OnsetFlux onsetFlux() const { return m_analysis.onsetFlux(); }
     float peak() const { return m_peak.load(); } // 0..1+, with decay
 
     // What the device delivers (its own thread); tests call it directly

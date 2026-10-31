@@ -9,7 +9,7 @@
 // ---------------------------------------------------------------------------
 static const char *const kSources[] = {"keyboard", "midi", "osc", "internal", "audio", "pixels", "hands"};
 static const char *const kFilters[] = {"average", "weighted_average", "pulse_detection", "attack_release", "damper",
-                                       "curve", "math", "clamp", "steps", "threshold", "delay", "speed", "remap", "toggle"};
+                                       "curve", "math", "clamp", "steps", "threshold", "delay", "speed", "remap", "toggle", "envelope"};
 static const char *const kMathOps[] = {"add", "subtract", "multiply", "divide", "modulo", "power", "min", "max",
                                        "abs", "floor", "ceil", "round", "one_minus"};
 
@@ -103,6 +103,7 @@ QString interactionFilterName(InteractionFilter f)
     case InteractionFilter::Speed: return QStringLiteral("Speed");
     case InteractionFilter::Remap: return QStringLiteral("Remap");
     case InteractionFilter::Toggle: return QStringLiteral("Toggle");
+    case InteractionFilter::Envelope: return QStringLiteral("Envelope");
     }
     return QString();
 }
@@ -194,6 +195,11 @@ FilterSetting interactionFilterSetting(InteractionFilter f, int which)
     case InteractionFilter::Delay: return two({"Delay", s, 0, 10, 0.5});
     case InteractionFilter::Speed: return two({"Full scale", " /s", 0.01, 100, 1}, {"Smoothing", s, 0.001, 5, 0.1});
     case InteractionFilter::Toggle: return two({"Threshold", "", 0, 1, 0.5});
+    case InteractionFilter::Envelope: {
+        // The defaults are an impact: a hit at once, gone in a third of a second. Sustain above 0 holds while the trigger is held
+        const FilterSetting e[] = {{"Attack", s, 0.001, 5, 0.005}, {"Decay", s, 0.001, 10, 0.3}, {"Sustain", "", 0, 1, 0}, {"Release", s, 0.001, 10, 0.3}};
+        return which >= 0 && which < 4 ? e[which] : FilterSetting{};
+    }
     case InteractionFilter::Remap: {
         const FilterSetting r[] = {{"In Min", "", 0, 1, 0}, {"In Max", "", 0, 1, 1}, {"Out Min", "", 0, 1, 0}, {"Out Max", "", 0, 1, 1}};
         return which >= 0 && which < 4 ? r[which] : FilterSetting{};
@@ -260,7 +266,7 @@ QString Interaction::label() const
     case InteractionSource::Hands:
         return QStringLiteral("Hand %1 · ").arg(handIndex + 1) + HandTracking::featureNames().value(int(handFeature));
     case InteractionSource::Audio: {
-        const QString what = audioFeature==AudioFeature::Band ? QStringLiteral("%1–%2 Hz").arg(audioLow,0,'f',0).arg(audioHigh,0,'f',0) : audioFeature==AudioFeature::Level ? QStringLiteral("level") : QStringLiteral("attacks");
+        const QString what = audioFeature==AudioFeature::Band ? QStringLiteral("%1–%2 Hz").arg(audioLow,0,'f',0).arg(audioHigh,0,'f',0) : audioFeature==AudioFeature::Level ? QStringLiteral("level") : audioFeature==AudioFeature::Hit ? QStringLiteral("hits %1–%2 Hz").arg(audioLow,0,'f',0).arg(audioHigh,0,'f',0) : QStringLiteral("attacks");
         return (audioInput ? QStringLiteral("Audio in ") : QStringLiteral("Audio ")) + what;
     }
     }
@@ -473,6 +479,10 @@ QJsonObject Interaction::toJson() const
         o["audio_high"] = audioHigh;
         o["audio_feature"] = int(audioFeature);
         o["audio_input"] = audioInput;
+        if (audioFeature == AudioFeature::Hit) {
+            o["audio_sensitivity"] = audioSensitivity;
+            o["audio_gap"] = audioGap;
+        }
         break;
     }
     o["layer"] = QString::number(layer);
@@ -527,7 +537,9 @@ Interaction Interaction::fromJson(const QJsonObject &o)
     it.audioLow=bounded(o.value("audio_low").toDouble(20),20);
     it.audioHigh=bounded(o.value("audio_high").toDouble(20000),20000);
     if(it.audioLow>it.audioHigh)std::swap(it.audioLow,it.audioHigh);
-    it.audioFeature=AudioFeature(std::clamp(o.value("audio_feature").toInt(),0,2));
+    it.audioFeature=AudioFeature(std::clamp(o.value("audio_feature").toInt(),0,3));
+    { const double s=o.value("audio_sensitivity").toDouble(0.5),g=o.value("audio_gap").toDouble(0.08);
+      it.audioSensitivity=std::isfinite(s)?std::clamp(s,0.,1.):0.5; it.audioGap=std::isfinite(g)?std::clamp(g,0.04,2.):0.08; }
     it.audioInput=o.value("audio_input").toBool(false);
     it.pixels = PixelAnalysis::Settings::fromJson(o.value("pixels").toObject());
     it.pixelFeature = PixelAnalysis::Feature(std::clamp(o.value("pixel_feature").toInt(), 0, 10));
@@ -610,10 +622,10 @@ std::optional<double> InteractionProcessor::step(const Interaction &it, double d
         }
         const double x = y;
         if (!st.started) { // starts where its input is (not from 0)
-            st.y = f.kind == InteractionFilter::PulseDetection || f.kind == InteractionFilter::Speed ? 0.0 : x;
+            st.y = f.kind == InteractionFilter::PulseDetection || f.kind == InteractionFilter::Speed || f.kind == InteractionFilter::Envelope ? 0.0 : x;
             st.slow = st.prev = x;
             st.v = 0;
-            st.high = f.kind != InteractionFilter::Toggle && x >= f.a; // a Toggle: off, its first press turns it on
+            st.high = f.kind != InteractionFilter::Toggle && f.kind != InteractionFilter::Envelope && x >= f.a; // a Toggle: off, its first press turns it on; an Envelope: a trigger held at the start fires it
             if (f.kind == InteractionFilter::Toggle) st.v = 0;
             st.started = true;
         }
@@ -687,6 +699,46 @@ std::optional<double> InteractionProcessor::step(const Interaction &it, double d
             const double span = f.b - f.a;
             const double n = std::abs(span) < 1e-12 ? (x >= f.b ? 1.0 : 0.0) : std::clamp((x - f.a) / span, 0.0, 1.0);
             y = f.c + n * (f.d - f.c);
+            break;
+        }
+        case InteractionFilter::Envelope: {
+            // A rise from 0 is a trigger, at the level it comes in (its velocity); falling back to 0 releases. Attack is a
+            // ramp from where the envelope is (a retrigger does not jump), decay and release fall exponentially (the
+            // shape of a hit) and end exactly on their target. A sustain of 0 makes a pulse that ends by itself, held or not.
+            const double attack = std::max(1e-3, f.a), decay = std::max(1e-3, f.b), release = std::max(1e-3, f.d);
+            const double sustain = std::clamp(f.c, 0.0, 1.0);
+            const bool gate = x > 1e-3;
+            if (gate && !st.high) {
+                st.phase = 1;
+                st.peak = std::clamp(x, 0.0, 1.0);
+            } else if (!gate && st.high && st.phase != 0) {
+                st.phase = 4;
+            }
+            st.high = gate;
+            auto fall = [&](double to, double time) {
+                st.y += (to - st.y) * (1.0 - std::exp(-dt * 4.6 / time)); // within 1% in `time`
+                if (std::abs(st.y - to) < 1e-3) st.y = to;
+            };
+            switch (st.phase) {
+            case 1:
+                st.y += dt / attack;
+                if (st.y >= 1.0) {
+                    st.y = 1.0;
+                    st.phase = 2;
+                }
+                break;
+            case 2:
+                fall(sustain, decay);
+                if (st.y == sustain) st.phase = sustain > 0 ? 3 : 0;
+                break;
+            case 3: st.y = sustain; break;
+            case 4:
+                fall(0.0, release);
+                if (st.y == 0.0) st.phase = 0;
+                break;
+            default: break;
+            }
+            y = st.y * st.peak;
             break;
         }
         case InteractionFilter::Toggle: {

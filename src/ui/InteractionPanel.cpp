@@ -1019,11 +1019,11 @@ void InteractionPanel::rebuildSettings()
                                                          :QStringLiteral("No live input open: choose one in Settings › Audio Input")));
         }
         auto *feature=new QComboBox;feature->setObjectName("audioFeature");
-        feature->addItems({QStringLiteral("Selected frequency band"),QStringLiteral("Overall level"),QStringLiteral("Attacks / onset")});feature->setCurrentIndex(int(it.audioFeature));
+        feature->addItems({QStringLiteral("Selected frequency band"),QStringLiteral("Overall level"),QStringLiteral("Attacks / onset"),QStringLiteral("Hits (a trigger)")});feature->setToolTip(QStringLiteral("Hits: a trigger at each hit (a kick, a snare) in the frequency region, at the hit's velocity — feed it an Envelope filter for a flash or an impact"));feature->setCurrentIndex(int(it.audioFeature));
         form->addRow(QStringLiteral("Measure"),feature);
         connect(feature,qOverload<int>(&QComboBox::activated),this,[this,edit](int k){edit(QStringLiteral("Change Audio Measure"),[k](Interaction &x){x.audioFeature=Interaction::AudioFeature(k);});rebuildSettings();});
         attachPreset({feature},{QStringLiteral("source/audio/feature")});
-        if(it.audioFeature==Interaction::AudioFeature::Band){
+        if(it.audioFeature==Interaction::AudioFeature::Band||it.audioFeature==Interaction::AudioFeature::Hit){
             Engine *engine=m_engine;const bool live=it.audioInput;
             auto *spectrum=new AudioSpectrum([engine,live]{return live?engine->audioInput().spectrum():engine->audioOutput().spectrum();});spectrum->setBand(it.audioLow,it.audioHigh);
             form->addRow(spectrum);
@@ -1042,6 +1042,20 @@ void InteractionPanel::rebuildSettings()
             regions->addItems({QStringLiteral("Sub · 20–80 Hz"),QStringLiteral("Bass · 80–250 Hz"),QStringLiteral("Body · 250–2000 Hz"),QStringLiteral("Presence · 2000–6000 Hz"),QStringLiteral("Air · 6000–20000 Hz"),QStringLiteral("Full spectrum")});
             form->addRow(QStringLiteral("Regions"),regions);
             connect(regions,qOverload<int>(&QComboBox::activated),this,[setBand](int k){const double bands[][2]={{20,20000},{20,80},{80,250},{250,2000},{2000,6000},{6000,20000},{20,20000}};if(k>=0&&k<7)setBand(bands[k][0],bands[k][1]);});
+        }
+        if(it.audioFeature==Interaction::AudioFeature::Hit){
+            // How faint a hit it hears, and how soon after one it may hear the next (a kick's tail is not a second kick)
+            auto *sens=new SliderField;sens->setObjectName("audioHitSensitivity");sens->setRange(0,100);sens->setDecimals(0);sens->setSuffix(QStringLiteral(" %"));sens->setValue(it.audioSensitivity*100);
+            sens->setToolTip(QStringLiteral("How faint a hit it hears: high catches soft hits (and some noise), low only the hard ones. The detector learns the usual level of the sound by itself."));
+            form->addRow(QStringLiteral("Sensitivity"),sens);
+            connect(sens,&SliderField::valueEdited,this,[edit](double v){edit(QStringLiteral("Change Hit Sensitivity"),[v](Interaction &x){x.audioSensitivity=std::clamp(v/100.,0.,1.);},QStringLiteral("audio_hit_sensitivity"));});
+            attachPreset({sens},{QStringLiteral("source/audio/sensitivity")});
+            auto *gap=new SliderField;gap->setObjectName("audioHitGap");gap->setRange(40,1000);gap->setDecimals(0);gap->setSuffix(QStringLiteral(" ms"));gap->setValue(it.audioGap*1000);
+            gap->setToolTip(QStringLiteral("The shortest time between two hits. 80 ms follows fast patterns; raise it to ignore a kick's rebound or a hi-hat's ring."));
+            form->addRow(QStringLiteral("Minimum gap"),gap);
+            connect(gap,&SliderField::valueEdited,this,[edit](double v){edit(QStringLiteral("Change Hit Gap"),[v](Interaction &x){x.audioGap=std::clamp(v/1000.,0.04,2.);},QStringLiteral("audio_hit_gap"));});
+            attachPreset({gap},{QStringLiteral("source/audio/gap")});
+            form->addRow(QString(),note(QStringLiteral("A pulse of 40 ms at the hit's velocity: add an Envelope filter for a flash or an impact.")));
         }
         break;
     }
@@ -1418,7 +1432,7 @@ void InteractionPanel::rebuildSettings()
     addFilter->setMenu(addMenu);
     const InteractionFilter overTime[] = {InteractionFilter::Average, InteractionFilter::WeightedAverage, InteractionFilter::AttackRelease,
                                           InteractionFilter::Damper, InteractionFilter::PulseDetection, InteractionFilter::Delay,
-                                          InteractionFilter::Speed};
+                                          InteractionFilter::Speed, InteractionFilter::Envelope};
     const InteractionFilter onValue[] = {InteractionFilter::Remap, InteractionFilter::Curve, InteractionFilter::Math, InteractionFilter::Clamp,
                                          InteractionFilter::Steps, InteractionFilter::Threshold, InteractionFilter::Toggle};
     auto offer = [this, edit, addMenu, count, srcLo, srcHi, tgtLo, tgtHi](InteractionFilter kind) {
@@ -1478,6 +1492,7 @@ void InteractionPanel::rebuildSettings()
         case InteractionFilter::Threshold:
         case InteractionFilter::Toggle:
         case InteractionFilter::PulseDetection:
+        case InteractionFilter::Envelope:
         case InteractionFilter::Speed: span = {0.0, 1.0}; break;
         default: break;
         }

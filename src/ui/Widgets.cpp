@@ -1,5 +1,6 @@
 #include "Widgets.h"
 #include "ColorPicker.h"
+#include <QDateTime>
 #include <QSpinBox>
 #include <QPointer>
 
@@ -1461,3 +1462,67 @@ QIcon playModeIcon(int mode)
     });
 }
 
+
+// ---------------------------------------------------------------------------
+// LevelMeter
+// ---------------------------------------------------------------------------
+
+namespace {
+constexpr double kMeterFloor = -60, kMeterCeiling = 6;
+double toDb(float linear) { return linear > 1e-6f ? std::max(kMeterFloor, 20.0 * std::log10(double(linear))) : kMeterFloor; }
+} // namespace
+
+LevelMeter::LevelMeter(const QString &name, QWidget *parent) : QWidget(parent), m_name(name)
+{
+    setObjectName(QStringLiteral("levelMeter"));
+    setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed); // a thin strip, as wide as it is given
+}
+
+double LevelMeter::position(double db) { return std::clamp((db - kMeterFloor) / (kMeterCeiling - kMeterFloor), 0.0, 1.0); }
+
+void LevelMeter::setLevels(float left, float right)
+{
+    const float now[2] = {std::isfinite(left) ? std::max(0.f, left) : 0.f, std::isfinite(right) ? std::max(0.f, right) : 0.f};
+    const qint64 t = QDateTime::currentMSecsSinceEpoch();
+    bool changed = false;
+    for (int c = 0; c < 2; ++c) {
+        changed |= std::abs(toDb(now[c]) - toDb(m_level[c])) > 0.2;
+        m_level[c] = now[c];
+        if (now[c] >= m_hold[c] || t - m_holdSince[c] > 1200) {
+            changed |= m_hold[c] != now[c];
+            m_hold[c] = now[c];
+            m_holdSince[c] = t;
+        }
+    }
+    if (!changed) return;
+    setToolTip(QStringLiteral("%1L %2 dB   R %3 dB").arg(m_name.isEmpty() ? QString() : m_name + QStringLiteral(": "))
+                   .arg(toDb(m_level[0]) <= kMeterFloor ? QStringLiteral("−∞") : QString::number(toDb(m_level[0]), 'f', 1))
+                   .arg(toDb(m_level[1]) <= kMeterFloor ? QStringLiteral("−∞") : QString::number(toDb(m_level[1]), 'f', 1)));
+    update();
+}
+
+void LevelMeter::paintEvent(QPaintEvent *)
+{
+    QPainter p(this);
+    const QRectF area = QRectF(rect()).adjusted(0.5, 1, -0.5, -1);
+    const double gap = 1.5, bar = std::max(2.0, (area.height() - gap) / 2);
+    for (int c = 0; c < 2; ++c) {
+        const QRectF track(area.left(), area.top() + c * (bar + gap), area.width(), bar);
+        p.fillRect(track, QColor(27, 27, 29));
+        const double w = track.width() * position(toDb(m_level[c]));
+        const double amber = track.width() * position(-18), red = track.width() * position(-3);
+        auto segment = [&](double from, double to, const QColor &color) {
+            if (to > from) p.fillRect(QRectF(track.left() + from, track.top(), to - from, track.height()), color);
+        };
+        segment(0, std::min(w, amber), QColor(63, 174, 90));
+        segment(amber, std::min(w, red), QColor(222, 178, 56));
+        segment(red, w, QColor(232, 82, 70));
+        const double h = track.width() * position(toDb(m_hold[c]));
+        if (m_hold[c] > 0.001f) p.fillRect(QRectF(track.left() + std::min(h, track.width() - 1.5), track.top(), 1.5, track.height()),
+                                           m_hold[c] > 1.0f ? QColor(232, 82, 70) : QColor(205, 205, 210));
+    }
+    // Where 0 dBFS is
+    const double zero = area.left() + area.width() * position(0);
+    p.setPen(QColor(90, 90, 96));
+    p.drawLine(QPointF(zero, area.top()), QPointF(zero, area.bottom()));
+}

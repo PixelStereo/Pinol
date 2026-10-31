@@ -8,6 +8,8 @@
 // interaction: what it does runs just after, on the engine's thread, as a button of the interface would.
 #include "EngineInternal.h"
 
+#include <QRegularExpression>
+
 namespace {
 QString named(const QString &name, quint64 id) { return name.isEmpty() ? QString::number(id) : name; }
 } // namespace
@@ -29,6 +31,7 @@ const std::vector<std::unique_ptr<Parameter>> &Engine::showParams()
     for (const Snapshot &s : m_snapshots) mix(1, s.id, s.name);
     for (const Preset &p : m_presets) mix(2, p.id, p.name);
     for (const Animation &a : m_animations) mix(3, a.id, a.name);
+    key = (key ^ (m_controlsRevision + 0x51ed270b)) * 0x100000001b3ULL; // the controls' definitions
     if (key == m_showParamsKey && !m_showParams.empty()) return m_showParams;
     m_showParamsKey = key;
     m_showParams.clear();
@@ -126,6 +129,71 @@ const std::vector<std::unique_ptr<Parameter>> &Engine::showParams()
         add(base + "position", cat + "Position", T::Float).range(0, 1).readOnly().bind(
             read([](const Animation &x) { return QVariant(x.progress()); }, 0.0), nullptr);
     }
+    // The operator's controls: control/<key>, a color as control/<key>/r, g, b. Their values live in the list; they are never
+    // stored by a cue (the operator's, not the scene's) and saved with the project by their own (Controls.cpp)
+    for (const ShowControl &control : m_controls) {
+        const quint64 id = control.id;
+        const QString path = QStringLiteral("control/") + control.key;
+        const QString label = QStringLiteral("Controls › ") + control.name;
+        auto read = [this, id](std::function<QVariant(const ShowControl &)> f, QVariant none) {
+            return [this, id, f, none] {
+                const ShowControl *c = controlLocked(id);
+                return c ? f(*c) : none;
+            };
+        };
+        auto write = [this, id](std::function<void(ShowControl &, const QVariant &)> f) {
+            return [this, id, f](const QVariant &v) {
+                if (ShowControl *c = controlLocked(id)) f(*c, v);
+            };
+        };
+        switch (control.kind) {
+        case ShowControl::Kind::Slider:
+            add(path, label, T::Float)
+                .range(control.min, control.max)
+                .step(control.step)
+                .byDefault(control.def)
+                .animatable()
+                .transient()
+                .bind(read([](const ShowControl &c) { return QVariant(c.value); }, 0.0),
+                      write([](ShowControl &c, const QVariant &v) { c.value = c.clamped(v.toDouble()); }));
+            break;
+        case ShowControl::Kind::Toggle:
+        case ShowControl::Kind::Button:
+            add(path, label, T::Bool)
+                .ramp(Parameter::Ramp::Cut)
+                .byDefault(false)
+                .transient()
+                .bind(read([](const ShowControl &c) { return QVariant(c.value >= 0.5); }, false),
+                      write([](ShowControl &c, const QVariant &v) { c.value = v.toBool() ? 1.0 : 0.0; }));
+            break;
+        case ShowControl::Kind::Choice: {
+            QStringList keys;
+            for (const QString &choice : control.choices) keys << choice.toLower();
+            add(path, label, T::Choice)
+                .choices(keys)
+                .byDefault(keys.value(0))
+                .transient()
+                .bind(read([](const ShowControl &c) { return QVariant(c.choices.value(int(c.value)).toLower()); }, QString()),
+                      write([](ShowControl &c, const QVariant &v) {
+                          const int k = c.choices.indexOf(QRegularExpression(QStringLiteral("^%1$").arg(QRegularExpression::escape(v.toString())),
+                                                                              QRegularExpression::CaseInsensitiveOption));
+                          if (k >= 0) c.value = k;
+                      }));
+            break;
+        }
+        case ShowControl::Kind::Color:
+            for (int k = 0; k < 3; ++k)
+                add(path + (k == 0 ? "/r" : k == 1 ? "/g" : "/b"), label + (k == 0 ? " (red)" : k == 1 ? " (green)" : " (blue)"), T::Float)
+                    .range(0, 1)
+                    .byDefault(1.0)
+                    .animatable()
+                    .transient()
+                    .colorComponent(k)
+                    .bind(read([k](const ShowControl &c) { return QVariant(c.rgb[size_t(k)]); }, 1.0),
+                          write([k](ShowControl &c, const QVariant &v) { c.rgb[size_t(k)] = std::clamp(v.toDouble(), 0.0, 1.0); }));
+            break;
+        }
+    }
     for (const auto &p : m_showParams) m_showParamIndex.insert(p->path(), p.get());
     return m_showParams;
 }
@@ -170,7 +238,7 @@ void Engine::followSequenceClocks()
 
 bool Engine::isShowParam(const QString &path)
 {
-    for (const char *prefix : {"show/", "sequence/", "snapshot/", "preset/", "timeline/"})
+    for (const char *prefix : {"show/", "sequence/", "snapshot/", "preset/", "timeline/", "control/"})
         if (path.startsWith(QLatin1String(prefix))) return true;
     return false;
 }

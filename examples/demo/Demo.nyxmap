@@ -1,0 +1,6104 @@
+{
+  "app": "NyxMap",
+  "format_version": 1,
+  "composition": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 60,
+    "speed": 1
+  },
+  "audio": {
+    "volume": 1
+  },
+  "layers": [
+    {
+      "id": "110",
+      "name": "Readout",
+      "enable": true,
+      "locked": false,
+      "viewports": {},
+      "source": {
+        "type": "text"
+      },
+      "fx": [],
+      "params": {
+        "opacity": 0,
+        "blend_mode": "normal",
+        "text/content": "",
+        "text/font": "Menlo",
+        "text/size": 22,
+        "text/align": "left",
+        "text/v_align": "top",
+        "text/width": 1100,
+        "text/height": 260,
+        "position/x": 614.0,
+        "position/y": 186.0,
+        "scale/x": 57.291666666666664,
+        "scale/y": 24.074074074074073,
+        "text/color/r": 1,
+        "text/color/g": 1,
+        "text/color/b": 1,
+        "text/color/a": 1.0
+      }
+    },
+    {
+      "id": "111",
+      "name": "Timecode",
+      "enable": true,
+      "locked": false,
+      "viewports": {},
+      "source": {
+        "type": "text",
+        "timecode": {
+          "source": "internal",
+          "internal": "free_run",
+          "rate": "25",
+          "offset": 0
+        }
+      },
+      "fx": [],
+      "params": {
+        "opacity": 0,
+        "blend_mode": "normal",
+        "text/content": "",
+        "text/font": "Menlo",
+        "text/size": 40,
+        "text/align": "right",
+        "text/v_align": "bottom",
+        "text/width": 520,
+        "text/height": 70,
+        "position/x": 1596.0,
+        "position/y": 989.0,
+        "scale/x": 27.083333333333332,
+        "scale/y": 6.481481481481482,
+        "text/color/r": 1,
+        "text/color/g": 1,
+        "text/color/b": 1,
+        "text/color/a": 1.0
+      }
+    },
+    {
+      "id": "114",
+      "name": "Colour Wash",
+      "enable": true,
+      "locked": false,
+      "viewports": {},
+      "source": {
+        "type": "isf",
+        "path": "shaders/Linear Gradient.fs",
+        "relative_path": "shaders/Linear Gradient.fs",
+        "width": 1920,
+        "height": 1080
+      },
+      "fx": [],
+      "params": {
+        "opacity": 0,
+        "blend_mode": "multiply",
+        "param/offset": 0.5,
+        "param/frequency": 1,
+        "param/curve": 0,
+        "param/vertical": true,
+        "param/startColor/r": 1,
+        "param/startColor/g": 1,
+        "param/startColor/b": 1,
+        "param/startColor/a": 1.0,
+        "param/endColor/r": 1,
+        "param/endColor/g": 1,
+        "param/endColor/b": 1,
+        "param/endColor/a": 1.0
+      }
+    },
+    {
+      "id": "120",
+      "name": "Light Bars",
+      "enable": true,
+      "locked": false,
+      "viewports": {},
+      "source": {
+        "type": "isf",
+        "path": "shaders/Light Bars.fs",
+        "relative_path": "shaders/Light Bars.fs",
+        "width": 1920,
+        "height": 1080
+      },
+      "fx": [],
+      "params": {
+        "opacity": 0,
+        "blend_mode": "add",
+        "param/count": 1,
+        "param/width": 0.004,
+        "param/phase": 0,
+        "param/speed": 0,
+        "param/angle": 90,
+        "param/spread": 1,
+        "param/jitter": 0,
+        "param/hit": 0,
+        "param/strobe": 0,
+        "param/mirror": false,
+        "param/outline": false,
+        "param/grid": false,
+        "param/tint/r": 1,
+        "param/tint/g": 1,
+        "param/tint/b": 1,
+        "param/tint/a": 1.0
+      }
+    },
+    {
+      "id": "130",
+      "name": "Window C · data",
+      "enable": true,
+      "locked": false,
+      "viewports": {},
+      "source": {
+        "type": "layer",
+        "layer": "150",
+        "tap": "prefx"
+      },
+      "fx": [
+        {
+          "path": "shaders/Soft Crop.fs",
+          "relative_path": "shaders/Soft Crop.fs"
+        }
+      ],
+      "params": {
+        "opacity": 0,
+        "blend_mode": "normal",
+        "fx/Soft_Crop/enable": true,
+        "fx/Soft_Crop/param/Top": 0.5,
+        "fx/Soft_Crop/param/Bottom": 0.5,
+        "fx/Soft_Crop/param/Left": 0.0,
+        "fx/Soft_Crop/param/Right": 1.0,
+        "fx/Soft_Crop/param/TopFeather": 0.0,
+        "fx/Soft_Crop/param/BottomFeather": 0.0,
+        "fx/Soft_Crop/param/LeftFeather": 0.0,
+        "fx/Soft_Crop/param/RightFeather": 0.0,
+        "rotation": 0,
+        "corner/top_left/x": 0,
+        "corner/top_left/y": 0,
+        "corner/top_right/x": 0,
+        "corner/top_right/y": 0,
+        "corner/bottom_right/x": 0,
+        "corner/bottom_right/y": 0,
+        "corner/bottom_left/x": 0,
+        "corner/bottom_left/y": 0,
+        "position/x": 1605.0,
+        "position/y": 540.0,
+        "scale/x": 32.8125,
+        "scale/y": 100.0,
+        "roi/left": 0.67,
+        "roi/top": 0,
+        "roi/right": 1,
+        "roi/bottom": 1
+      }
+    },
+    {
+      "id": "131",
+      "name": "Window B · lattice",
+      "enable": true,
+      "locked": false,
+      "viewports": {},
+      "source": {
+        "type": "layer",
+        "layer": "170",
+        "tap": "postfx"
+      },
+      "fx": [
+        {
+          "path": "shaders/Soft Crop.fs",
+          "relative_path": "shaders/Soft Crop.fs"
+        }
+      ],
+      "params": {
+        "opacity": 0,
+        "blend_mode": "normal",
+        "fx/Soft_Crop/enable": true,
+        "fx/Soft_Crop/param/Top": 0.5,
+        "fx/Soft_Crop/param/Bottom": 0.5,
+        "fx/Soft_Crop/param/Left": 0.0,
+        "fx/Soft_Crop/param/Right": 1.0,
+        "fx/Soft_Crop/param/TopFeather": 0.0,
+        "fx/Soft_Crop/param/BottomFeather": 0.0,
+        "fx/Soft_Crop/param/LeftFeather": 0.0,
+        "fx/Soft_Crop/param/RightFeather": 0.0,
+        "rotation": 0,
+        "corner/top_left/x": 0,
+        "corner/top_left/y": 0,
+        "corner/top_right/x": 0,
+        "corner/top_right/y": 0,
+        "corner/bottom_right/x": 0,
+        "corner/bottom_right/y": 0,
+        "corner/bottom_left/x": 0,
+        "corner/bottom_left/y": 0,
+        "position/x": 960.0,
+        "position/y": 540.0,
+        "scale/x": 32.8125,
+        "scale/y": 100.0,
+        "roi/left": 0.335,
+        "roi/top": 0,
+        "roi/right": 0.665,
+        "roi/bottom": 1
+      }
+    },
+    {
+      "id": "132",
+      "name": "Window A · lattice",
+      "enable": true,
+      "locked": false,
+      "viewports": {},
+      "source": {
+        "type": "layer",
+        "layer": "170",
+        "tap": "postfx"
+      },
+      "fx": [
+        {
+          "path": "shaders/Soft Crop.fs",
+          "relative_path": "shaders/Soft Crop.fs"
+        }
+      ],
+      "params": {
+        "opacity": 0,
+        "blend_mode": "normal",
+        "fx/Soft_Crop/enable": true,
+        "fx/Soft_Crop/param/Top": 0.5,
+        "fx/Soft_Crop/param/Bottom": 0.5,
+        "fx/Soft_Crop/param/Left": 0.0,
+        "fx/Soft_Crop/param/Right": 1.0,
+        "fx/Soft_Crop/param/TopFeather": 0.0,
+        "fx/Soft_Crop/param/BottomFeather": 0.0,
+        "fx/Soft_Crop/param/LeftFeather": 0.0,
+        "fx/Soft_Crop/param/RightFeather": 0.0,
+        "rotation": 0,
+        "corner/top_left/x": 0,
+        "corner/top_left/y": 0,
+        "corner/top_right/x": 0,
+        "corner/top_right/y": 0,
+        "corner/bottom_right/x": 0,
+        "corner/bottom_right/y": 0,
+        "corner/bottom_left/x": 0,
+        "corner/bottom_left/y": 0,
+        "position/x": 315.0,
+        "position/y": 540.0,
+        "scale/x": 32.8125,
+        "scale/y": 100.0,
+        "roi/left": 0,
+        "roi/top": 0,
+        "roi/right": 0.33,
+        "roi/bottom": 1
+      }
+    },
+    {
+      "id": "140",
+      "name": "Inside the title · waves",
+      "enable": true,
+      "locked": false,
+      "viewports": {},
+      "source": {
+        "type": "layer",
+        "layer": "160",
+        "tap": "postfx"
+      },
+      "fx": [],
+      "params": {
+        "opacity": 0,
+        "blend_mode": "screen"
+      },
+      "matte": {
+        "layer": "145",
+        "channel": "alpha",
+        "invert": false,
+        "space": "composition"
+      }
+    },
+    {
+      "id": "145",
+      "name": "Title",
+      "enable": true,
+      "locked": false,
+      "viewports": {},
+      "source": {
+        "type": "text"
+      },
+      "fx": [],
+      "params": {
+        "opacity": 0,
+        "blend_mode": "normal",
+        "text/content": "NyxMap",
+        "text/font": "Helvetica Neue",
+        "text/size": 440,
+        "text/align": "center",
+        "text/v_align": "middle",
+        "text/width": 1920,
+        "text/height": 1080,
+        "position/x": 960.0,
+        "position/y": 540.0,
+        "scale/x": 100.0,
+        "scale/y": 100.0,
+        "text/color/r": 0.03,
+        "text/color/g": 0.07,
+        "text/color/b": 0.42,
+        "text/color/a": 1.0,
+        "text/bold": true,
+        "text/letter_spacing": -12,
+        "corner/top_left/x": 0,
+        "corner/top_left/y": 0,
+        "corner/top_right/x": 0,
+        "corner/top_right/y": 0,
+        "corner/bottom_right/x": 0,
+        "corner/bottom_right/y": 0,
+        "corner/bottom_left/x": 0,
+        "corner/bottom_left/y": 0
+      }
+    },
+    {
+      "id": "150",
+      "name": "Data Stream",
+      "enable": true,
+      "locked": false,
+      "viewports": {},
+      "source": {
+        "type": "isf",
+        "path": "shaders/Data Stream.fs",
+        "relative_path": "shaders/Data Stream.fs",
+        "width": 1920,
+        "height": 1080,
+        "audio_sources": {
+          "fft": "program"
+        }
+      },
+      "fx": [
+        {
+          "path": "shaders/Zoom Volumetric.fs",
+          "relative_path": "shaders/Zoom Volumetric.fs"
+        },
+        {
+          "path": "shaders/VHS Glitch.fs",
+          "relative_path": "shaders/VHS Glitch.fs"
+        }
+      ],
+      "params": {
+        "opacity": 0,
+        "blend_mode": "difference",
+        "param/mode": 0,
+        "param/rows": 24,
+        "param/density": 0.5,
+        "param/speed": 0.6,
+        "param/flicker": 0,
+        "param/band": 1,
+        "param/center": 0.5,
+        "param/hit": 0,
+        "param/glitch": 0,
+        "param/invert": false,
+        "param/progress": 0,
+        "param/tint/r": 1,
+        "param/tint/g": 1,
+        "param/tint/b": 1,
+        "param/tint/a": 1.0,
+        "fx/Zoom_Volumetric/enable": false,
+        "fx/Zoom_Volumetric/param/DEPTH": 2.2,
+        "fx/Zoom_Volumetric/param/GAIN": 0.28,
+        "fx/Zoom_Volumetric/param/LAYERS": 12,
+        "fx/Zoom_Volumetric/param/TILE": true,
+        "fx/VHS_Glitch/enable": false,
+        "fx/VHS_Glitch/param/analogDistort": 0,
+        "fx/VHS_Glitch/param/bleedAmount": 0.6,
+        "fx/VHS_Glitch/param/grainLevel": 0.4
+      }
+    },
+    {
+      "id": "160",
+      "name": "Waveform Lines",
+      "enable": true,
+      "locked": false,
+      "viewports": {},
+      "source": {
+        "type": "isf",
+        "path": "shaders/Waveform Lines.fs",
+        "relative_path": "shaders/Waveform Lines.fs",
+        "width": 1920,
+        "height": 1080,
+        "audio_sources": {
+          "wave": "program"
+        }
+      },
+      "fx": [],
+      "params": {
+        "opacity": 0,
+        "blend_mode": "add",
+        "param/lines": 40,
+        "param/amplitude": 0.8,
+        "param/depth": 0.7,
+        "param/tilt": 0.35,
+        "param/thickness": 1.6,
+        "param/hit": 0,
+        "param/tint/r": 1,
+        "param/tint/g": 1,
+        "param/tint/b": 1,
+        "param/tint/a": 1.0
+      }
+    },
+    {
+      "id": "170",
+      "name": "Beam Lattice",
+      "enable": true,
+      "locked": false,
+      "viewports": {},
+      "source": {
+        "type": "isf",
+        "path": "shaders/Beam Lattice.fs",
+        "relative_path": "shaders/Beam Lattice.fs",
+        "width": 1920,
+        "height": 1080
+      },
+      "fx": [
+        {
+          "path": "shaders/Kaleidoscope.fs",
+          "relative_path": "shaders/Kaleidoscope.fs"
+        },
+        {
+          "path": "shaders/Trails.fs",
+          "relative_path": "shaders/Trails.fs"
+        }
+      ],
+      "params": {
+        "opacity": 0,
+        "blend_mode": "normal",
+        "param/speed": 0.5,
+        "param/cell": 2,
+        "param/thickness": 0.012,
+        "param/glow": 0.5,
+        "param/fog": 0.45,
+        "param/warp": 0,
+        "param/axes": 0,
+        "param/fov": 70,
+        "param/hit": 0,
+        "param/invert": false,
+        "param/tint/r": 1,
+        "param/tint/g": 1,
+        "param/tint/b": 1,
+        "param/tint/a": 1.0,
+        "rotation": 0,
+        "scale/x": 100,
+        "scale/y": 100,
+        "fx/Kaleidoscope/enable": false,
+        "fx/Kaleidoscope/param/segments": 6,
+        "fx/Kaleidoscope/param/spin": 0.05,
+        "fx/Trails/enable": false,
+        "fx/Trails/param/decay": 0.86,
+        "fx/Trails/param/mode": 0
+      }
+    },
+    {
+      "id": "190",
+      "name": "Soundtrack",
+      "enable": true,
+      "locked": false,
+      "viewports": {},
+      "source": {
+        "type": "audio",
+        "path": "audio/abydos_music-science-of-trip-hop-30-sec-edit-202809.mp3",
+        "relative_path": "audio/abydos_music-science-of-trip-hop-30-sec-edit-202809.mp3"
+      },
+      "play": false,
+      "fx": [],
+      "params": {
+        "play": false,
+        "play_mode": "oneshot",
+        "volume": 1
+      }
+    }
+  ],
+  "interactions": [
+    {
+      "id": "1",
+      "name": "Kick → bars flash",
+      "enabled": false,
+      "source": "audio",
+      "audio_low": 35,
+      "audio_high": 110,
+      "audio_feature": 0,
+      "audio_input": false,
+      "layer": "120",
+      "param": "param/hit",
+      "master": 1,
+      "filters": [
+        {
+          "type": "pulse_detection",
+          "a": 0.1,
+          "b": 0.16
+        },
+        {
+          "type": "remap",
+          "a": 0,
+          "b": 0.8,
+          "c": 0,
+          "d": 1
+        }
+      ],
+      "takeover": "jump"
+    },
+    {
+      "id": "2",
+      "name": "Kick → lattice flash",
+      "enabled": false,
+      "source": "audio",
+      "audio_low": 35,
+      "audio_high": 110,
+      "audio_feature": 0,
+      "audio_input": false,
+      "layer": "170",
+      "param": "param/hit",
+      "master": 1,
+      "filters": [
+        {
+          "type": "pulse_detection",
+          "a": 0.1,
+          "b": 0.28
+        },
+        {
+          "type": "remap",
+          "a": 0,
+          "b": 0.8,
+          "c": 0,
+          "d": 1
+        }
+      ],
+      "takeover": "jump"
+    },
+    {
+      "id": "3",
+      "name": "Air → data flicker",
+      "enabled": false,
+      "source": "audio",
+      "audio_low": 5000,
+      "audio_high": 14000,
+      "audio_feature": 0,
+      "audio_input": false,
+      "layer": "150",
+      "param": "param/flicker",
+      "master": 1,
+      "filters": [
+        {
+          "type": "weighted_average",
+          "a": 0.04
+        },
+        {
+          "type": "remap",
+          "a": 0.0005,
+          "b": 0.009,
+          "c": 0,
+          "d": 0.55
+        }
+      ],
+      "takeover": "jump"
+    },
+    {
+      "id": "4",
+      "name": "Mids → wave height",
+      "enabled": false,
+      "source": "audio",
+      "audio_low": 300,
+      "audio_high": 2500,
+      "audio_feature": 0,
+      "audio_input": false,
+      "layer": "160",
+      "param": "param/amplitude",
+      "master": 1,
+      "filters": [
+        {
+          "type": "attack_release",
+          "a": 0.01,
+          "b": 0.18
+        },
+        {
+          "type": "remap",
+          "a": 0.012,
+          "b": 0.07,
+          "c": 0.35,
+          "d": 2.2
+        }
+      ],
+      "takeover": "jump"
+    },
+    {
+      "id": "5",
+      "name": "Level → lattice glow",
+      "enabled": false,
+      "source": "audio",
+      "audio_low": 20,
+      "audio_high": 20000,
+      "audio_feature": 1,
+      "audio_input": false,
+      "layer": "170",
+      "param": "param/glow",
+      "master": 1,
+      "filters": [
+        {
+          "type": "attack_release",
+          "a": 0.02,
+          "b": 0.3
+        },
+        {
+          "type": "remap",
+          "a": 0.05,
+          "b": 0.6,
+          "c": 0.25,
+          "d": 1.6
+        }
+      ],
+      "takeover": "jump"
+    },
+    {
+      "id": "6",
+      "name": "Kick → data inverts",
+      "enabled": false,
+      "source": "audio",
+      "audio_low": 35,
+      "audio_high": 110,
+      "audio_feature": 0,
+      "audio_input": false,
+      "layer": "150",
+      "param": "param/invert",
+      "master": 1,
+      "filters": [
+        {
+          "type": "pulse_detection",
+          "a": 0.1,
+          "b": 0.16
+        },
+        {
+          "type": "toggle",
+          "a": 0.5
+        }
+      ],
+      "takeover": "jump"
+    },
+    {
+      "id": "7",
+      "name": "Kick → waves jump",
+      "enabled": false,
+      "source": "audio",
+      "audio_low": 35,
+      "audio_high": 110,
+      "audio_feature": 0,
+      "audio_input": false,
+      "layer": "160",
+      "param": "param/hit",
+      "master": 1,
+      "filters": [
+        {
+          "type": "pulse_detection",
+          "a": 0.1,
+          "b": 0.2
+        },
+        {
+          "type": "remap",
+          "a": 0,
+          "b": 0.8,
+          "c": 0,
+          "d": 0.8
+        }
+      ],
+      "takeover": "jump"
+    },
+    {
+      "id": "8",
+      "name": "Soundtrack progress → data line",
+      "enabled": true,
+      "source": "internal",
+      "source_layer": "190",
+      "source_param": "progress",
+      "layer": "150",
+      "param": "param/progress",
+      "master": 1,
+      "filters": [],
+      "takeover": "jump"
+    },
+    {
+      "id": "9",
+      "name": "Soundtrack progress → lattice roll",
+      "enabled": true,
+      "source": "internal",
+      "source_layer": "190",
+      "source_param": "progress",
+      "layer": "170",
+      "param": "param/roll",
+      "master": 1,
+      "filters": [
+        {
+          "type": "remap",
+          "a": 0,
+          "b": 1,
+          "c": 0,
+          "d": -38
+        }
+      ],
+      "takeover": "jump"
+    },
+    {
+      "id": "10",
+      "name": "Highs burst → glitch",
+      "enabled": false,
+      "source": "audio",
+      "audio_low": 6000,
+      "audio_high": 16000,
+      "audio_feature": 0,
+      "audio_input": false,
+      "layer": "0",
+      "param": "",
+      "master": 1,
+      "filters": [],
+      "takeover": "jump",
+      "mode": "action",
+      "conditions": [
+        {
+          "op": "ge",
+          "a": 0.006,
+          "b": 1
+        }
+      ],
+      "conditions_all": true,
+      "if_true": [
+        {
+          "layer": "150",
+          "param": "fx/VHS_Glitch/param/analogDistort",
+          "value": 7,
+          "time": 0
+        },
+        {
+          "layer": "150",
+          "param": "param/glitch",
+          "value": 0.9,
+          "time": 0
+        }
+      ],
+      "if_false": [
+        {
+          "layer": "150",
+          "param": "fx/VHS_Glitch/param/analogDistort",
+          "value": 0,
+          "time": 0.35,
+          "curve": 2
+        },
+        {
+          "layer": "150",
+          "param": "param/glitch",
+          "value": 0,
+          "time": 0.5,
+          "curve": 2
+        }
+      ]
+    },
+    {
+      "id": "12",
+      "name": "Kick → punch",
+      "enabled": false,
+      "source": "audio",
+      "audio_low": 35,
+      "audio_high": 110,
+      "audio_feature": 0,
+      "audio_input": false,
+      "layer": "0",
+      "param": "",
+      "master": 1,
+      "filters": [],
+      "takeover": "jump",
+      "mode": "action",
+      "conditions": [
+        {
+          "op": "ge",
+          "a": 0.36,
+          "b": 1
+        }
+      ],
+      "conditions_all": true,
+      "if_true": [
+        {
+          "layer": "170",
+          "param": "param/fov",
+          "value": 108,
+          "time": 0
+        },
+        {
+          "layer": "170",
+          "param": "param/cell",
+          "value": 1.5,
+          "time": 0
+        },
+        {
+          "layer": "120",
+          "param": "param/jitter",
+          "value": 0.5,
+          "time": 0
+        },
+        {
+          "layer": "160",
+          "param": "param/thickness",
+          "value": 5,
+          "time": 0
+        }
+      ],
+      "if_false": [
+        {
+          "layer": "170",
+          "param": "param/fov",
+          "value": 70,
+          "time": 0.5,
+          "curve": 2
+        },
+        {
+          "layer": "170",
+          "param": "param/cell",
+          "value": 2,
+          "time": 0.8,
+          "curve": 3
+        },
+        {
+          "layer": "120",
+          "param": "param/jitter",
+          "value": 0,
+          "time": 0.25,
+          "curve": 0
+        },
+        {
+          "layer": "160",
+          "param": "param/thickness",
+          "value": 1.6,
+          "time": 0.4,
+          "curve": 2
+        }
+      ]
+    },
+    {
+      "id": "11",
+      "name": "Tape end → blackout",
+      "enabled": true,
+      "source": "internal",
+      "source_layer": "190",
+      "source_param": "playhead",
+      "layer": "0",
+      "param": "",
+      "master": 1,
+      "filters": [],
+      "takeover": "jump",
+      "mode": "action",
+      "conditions": [
+        {
+          "op": "ge",
+          "a": 29.4,
+          "b": 1
+        }
+      ],
+      "conditions_all": true,
+      "if_true": [
+        {
+          "layer": "0",
+          "param": "show/blackout",
+          "value": 1
+        }
+      ],
+      "if_false": [
+        {
+          "layer": "0",
+          "param": "show/blackout",
+          "value": 0
+        }
+      ]
+    }
+  ],
+  "timelines": [
+    {
+      "id": "1",
+      "name": "Rise",
+      "duration": 1.5,
+      "loop": "once",
+      "tracks": [
+        {
+          "layer": "150",
+          "param": "param/band",
+          "keys": [
+            [
+              0,
+              0.06
+            ],
+            [
+              1.5,
+              0.55,
+              1
+            ]
+          ]
+        },
+        {
+          "layer": "150",
+          "param": "param/rows",
+          "keys": [
+            [
+              0,
+              6
+            ],
+            [
+              1.5,
+              40,
+              1
+            ]
+          ]
+        },
+        {
+          "layer": "120",
+          "param": "param/spread",
+          "keys": [
+            [
+              0,
+              0.065
+            ],
+            [
+              1.5,
+              1.0,
+              4
+            ]
+          ]
+        },
+        {
+          "layer": "120",
+          "param": "param/count",
+          "keys": [
+            [
+              0,
+              2
+            ],
+            [
+              1.5,
+              24,
+              4
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "2",
+      "name": "Drift",
+      "duration": 24.6,
+      "loop": "loop",
+      "tracks": [
+        {
+          "layer": "170",
+          "param": "param/yaw",
+          "oscillator": {
+            "wave": "sine",
+            "period": 18.4656,
+            "center": 0,
+            "amplitude": 34,
+            "phase": 0,
+            "seed": 1
+          }
+        },
+        {
+          "layer": "170",
+          "param": "param/pitch",
+          "oscillator": {
+            "wave": "sine",
+            "period": 12.3104,
+            "center": 0,
+            "amplitude": 14,
+            "phase": 0.25,
+            "seed": 2
+          }
+        }
+      ]
+    },
+    {
+      "id": "3",
+      "name": "Reframing",
+      "duration": 3.0776,
+      "loop": "loop",
+      "tracks": [
+        {
+          "layer": "132",
+          "param": "position/x",
+          "keys": [
+            [
+              0.0,
+              315.0,
+              "hold"
+            ],
+            [
+              0.7694,
+              640.0,
+              "hold"
+            ],
+            [
+              1.5388,
+              960.0,
+              "hold"
+            ],
+            [
+              2.3082,
+              960.0,
+              "hold"
+            ]
+          ]
+        },
+        {
+          "layer": "132",
+          "param": "position/y",
+          "keys": [
+            [
+              0.0,
+              540.0,
+              "hold"
+            ],
+            [
+              0.7694,
+              540.0,
+              "hold"
+            ],
+            [
+              1.5388,
+              180.0,
+              "hold"
+            ],
+            [
+              2.3082,
+              540.0,
+              "hold"
+            ]
+          ]
+        },
+        {
+          "layer": "132",
+          "param": "scale/x",
+          "keys": [
+            [
+              0.0,
+              32.8125,
+              "hold"
+            ],
+            [
+              0.7694,
+              66.66666666666667,
+              "hold"
+            ],
+            [
+              1.5388,
+              100.0,
+              "hold"
+            ],
+            [
+              2.3082,
+              100.0,
+              "hold"
+            ]
+          ]
+        },
+        {
+          "layer": "132",
+          "param": "scale/y",
+          "keys": [
+            [
+              0.0,
+              100.0,
+              "hold"
+            ],
+            [
+              0.7694,
+              100.0,
+              "hold"
+            ],
+            [
+              1.5388,
+              33.333333333333336,
+              "hold"
+            ],
+            [
+              2.3082,
+              100.0,
+              "hold"
+            ]
+          ]
+        },
+        {
+          "layer": "132",
+          "param": "roi/left",
+          "keys": [
+            [
+              0.0,
+              0.0,
+              "hold"
+            ],
+            [
+              0.7694,
+              0.3,
+              "hold"
+            ],
+            [
+              1.5388,
+              0.0,
+              "hold"
+            ],
+            [
+              2.3082,
+              0.36,
+              "hold"
+            ]
+          ]
+        },
+        {
+          "layer": "132",
+          "param": "roi/top",
+          "keys": [
+            [
+              0.0,
+              0,
+              "hold"
+            ],
+            [
+              0.7694,
+              0.15,
+              "hold"
+            ],
+            [
+              1.5388,
+              0.3,
+              "hold"
+            ],
+            [
+              2.3082,
+              0.36,
+              "hold"
+            ]
+          ]
+        },
+        {
+          "layer": "132",
+          "param": "roi/right",
+          "keys": [
+            [
+              0.0,
+              0.33,
+              "hold"
+            ],
+            [
+              0.7694,
+              0.6,
+              "hold"
+            ],
+            [
+              1.5388,
+              1,
+              "hold"
+            ],
+            [
+              2.3082,
+              0.64,
+              "hold"
+            ]
+          ]
+        },
+        {
+          "layer": "132",
+          "param": "roi/bottom",
+          "keys": [
+            [
+              0.0,
+              1,
+              "hold"
+            ],
+            [
+              0.7694,
+              0.85,
+              "hold"
+            ],
+            [
+              1.5388,
+              0.63,
+              "hold"
+            ],
+            [
+              2.3082,
+              0.64,
+              "hold"
+            ]
+          ]
+        },
+        {
+          "layer": "132",
+          "param": "rotation",
+          "keys": [
+            [
+              0.0,
+              0,
+              "hold"
+            ],
+            [
+              0.7694,
+              -6,
+              "hold"
+            ],
+            [
+              1.5388,
+              0,
+              "hold"
+            ],
+            [
+              2.3082,
+              4,
+              "hold"
+            ]
+          ]
+        },
+        {
+          "layer": "131",
+          "param": "position/x",
+          "keys": [
+            [
+              0.0,
+              960.0,
+              "hold"
+            ],
+            [
+              0.7694,
+              1580.0,
+              "hold"
+            ],
+            [
+              1.5388,
+              960.0,
+              "hold"
+            ],
+            [
+              2.3082,
+              1640.0,
+              "hold"
+            ]
+          ]
+        },
+        {
+          "layer": "131",
+          "param": "position/y",
+          "keys": [
+            [
+              0.0,
+              540.0,
+              "hold"
+            ],
+            [
+              0.7694,
+              290.0,
+              "hold"
+            ],
+            [
+              1.5388,
+              540.0,
+              "hold"
+            ],
+            [
+              2.3082,
+              890.0,
+              "hold"
+            ]
+          ]
+        },
+        {
+          "layer": "131",
+          "param": "scale/x",
+          "keys": [
+            [
+              0.0,
+              32.8125,
+              "hold"
+            ],
+            [
+              0.7694,
+              29.166666666666668,
+              "hold"
+            ],
+            [
+              1.5388,
+              100.0,
+              "hold"
+            ],
+            [
+              2.3082,
+              22.916666666666668,
+              "hold"
+            ]
+          ]
+        },
+        {
+          "layer": "131",
+          "param": "scale/y",
+          "keys": [
+            [
+              0.0,
+              100.0,
+              "hold"
+            ],
+            [
+              0.7694,
+              42.592592592592595,
+              "hold"
+            ],
+            [
+              1.5388,
+              33.333333333333336,
+              "hold"
+            ],
+            [
+              2.3082,
+              24.074074074074073,
+              "hold"
+            ]
+          ]
+        },
+        {
+          "layer": "131",
+          "param": "roi/left",
+          "keys": [
+            [
+              0.0,
+              0.335,
+              "hold"
+            ],
+            [
+              0.7694,
+              0.7,
+              "hold"
+            ],
+            [
+              1.5388,
+              0.0,
+              "hold"
+            ],
+            [
+              2.3082,
+              0.0,
+              "hold"
+            ]
+          ]
+        },
+        {
+          "layer": "131",
+          "param": "roi/top",
+          "keys": [
+            [
+              0.0,
+              0,
+              "hold"
+            ],
+            [
+              0.7694,
+              0.1,
+              "hold"
+            ],
+            [
+              1.5388,
+              0.0,
+              "hold"
+            ],
+            [
+              2.3082,
+              0.0,
+              "hold"
+            ]
+          ]
+        },
+        {
+          "layer": "131",
+          "param": "roi/right",
+          "keys": [
+            [
+              0.0,
+              0.665,
+              "hold"
+            ],
+            [
+              0.7694,
+              0.99,
+              "hold"
+            ],
+            [
+              1.5388,
+              1,
+              "hold"
+            ],
+            [
+              2.3082,
+              0.25,
+              "hold"
+            ]
+          ]
+        },
+        {
+          "layer": "131",
+          "param": "roi/bottom",
+          "keys": [
+            [
+              0.0,
+              1,
+              "hold"
+            ],
+            [
+              0.7694,
+              0.55,
+              "hold"
+            ],
+            [
+              1.5388,
+              0.33,
+              "hold"
+            ],
+            [
+              2.3082,
+              0.25,
+              "hold"
+            ]
+          ]
+        },
+        {
+          "layer": "131",
+          "param": "rotation",
+          "keys": [
+            [
+              0.0,
+              0,
+              "hold"
+            ],
+            [
+              0.7694,
+              8,
+              "hold"
+            ],
+            [
+              1.5388,
+              0,
+              "hold"
+            ],
+            [
+              2.3082,
+              -12,
+              "hold"
+            ]
+          ]
+        },
+        {
+          "layer": "130",
+          "param": "position/x",
+          "keys": [
+            [
+              0.0,
+              1605.0,
+              "hold"
+            ],
+            [
+              0.7694,
+              1580.0,
+              "hold"
+            ],
+            [
+              1.5388,
+              960.0,
+              "hold"
+            ],
+            [
+              2.3082,
+              280.0,
+              "hold"
+            ]
+          ]
+        },
+        {
+          "layer": "130",
+          "param": "position/y",
+          "keys": [
+            [
+              0.0,
+              540.0,
+              "hold"
+            ],
+            [
+              0.7694,
+              790.0,
+              "hold"
+            ],
+            [
+              1.5388,
+              900.0,
+              "hold"
+            ],
+            [
+              2.3082,
+              890.0,
+              "hold"
+            ]
+          ]
+        },
+        {
+          "layer": "130",
+          "param": "scale/x",
+          "keys": [
+            [
+              0.0,
+              32.8125,
+              "hold"
+            ],
+            [
+              0.7694,
+              29.166666666666668,
+              "hold"
+            ],
+            [
+              1.5388,
+              100.0,
+              "hold"
+            ],
+            [
+              2.3082,
+              22.916666666666668,
+              "hold"
+            ]
+          ]
+        },
+        {
+          "layer": "130",
+          "param": "scale/y",
+          "keys": [
+            [
+              0.0,
+              100.0,
+              "hold"
+            ],
+            [
+              0.7694,
+              42.592592592592595,
+              "hold"
+            ],
+            [
+              1.5388,
+              33.333333333333336,
+              "hold"
+            ],
+            [
+              2.3082,
+              24.074074074074073,
+              "hold"
+            ]
+          ]
+        },
+        {
+          "layer": "130",
+          "param": "roi/left",
+          "keys": [
+            [
+              0.0,
+              0.67,
+              "hold"
+            ],
+            [
+              0.7694,
+              0.0,
+              "hold"
+            ],
+            [
+              1.5388,
+              0.0,
+              "hold"
+            ],
+            [
+              2.3082,
+              0.4,
+              "hold"
+            ]
+          ]
+        },
+        {
+          "layer": "130",
+          "param": "roi/top",
+          "keys": [
+            [
+              0.0,
+              0,
+              "hold"
+            ],
+            [
+              0.7694,
+              0.5,
+              "hold"
+            ],
+            [
+              1.5388,
+              0.67,
+              "hold"
+            ],
+            [
+              2.3082,
+              0.4,
+              "hold"
+            ]
+          ]
+        },
+        {
+          "layer": "130",
+          "param": "roi/right",
+          "keys": [
+            [
+              0.0,
+              1,
+              "hold"
+            ],
+            [
+              0.7694,
+              0.3,
+              "hold"
+            ],
+            [
+              1.5388,
+              1,
+              "hold"
+            ],
+            [
+              2.3082,
+              0.62,
+              "hold"
+            ]
+          ]
+        },
+        {
+          "layer": "130",
+          "param": "roi/bottom",
+          "keys": [
+            [
+              0.0,
+              1,
+              "hold"
+            ],
+            [
+              0.7694,
+              0.95,
+              "hold"
+            ],
+            [
+              1.5388,
+              1,
+              "hold"
+            ],
+            [
+              2.3082,
+              0.62,
+              "hold"
+            ]
+          ]
+        },
+        {
+          "layer": "130",
+          "param": "rotation",
+          "keys": [
+            [
+              0.0,
+              0,
+              "hold"
+            ],
+            [
+              0.7694,
+              -4,
+              "hold"
+            ],
+            [
+              1.5388,
+              0,
+              "hold"
+            ],
+            [
+              2.3082,
+              10,
+              "hold"
+            ]
+          ]
+        },
+        {
+          "layer": "132",
+          "param": "fx/Soft_Crop/param/Top",
+          "keys": [
+            [
+              0,
+              0.5
+            ],
+            [
+              0.12,
+              1.0,
+              2
+            ]
+          ]
+        },
+        {
+          "layer": "132",
+          "param": "fx/Soft_Crop/param/Bottom",
+          "keys": [
+            [
+              0,
+              0.5
+            ],
+            [
+              0.12,
+              0.0,
+              2
+            ]
+          ]
+        },
+        {
+          "layer": "131",
+          "param": "fx/Soft_Crop/param/Top",
+          "keys": [
+            [
+              0,
+              0.5
+            ],
+            [
+              0.16999999999999998,
+              1.0,
+              2
+            ]
+          ]
+        },
+        {
+          "layer": "131",
+          "param": "fx/Soft_Crop/param/Bottom",
+          "keys": [
+            [
+              0,
+              0.5
+            ],
+            [
+              0.16999999999999998,
+              0.0,
+              2
+            ]
+          ]
+        },
+        {
+          "layer": "130",
+          "param": "fx/Soft_Crop/param/Top",
+          "keys": [
+            [
+              0,
+              0.5
+            ],
+            [
+              0.22,
+              1.0,
+              2
+            ]
+          ]
+        },
+        {
+          "layer": "130",
+          "param": "fx/Soft_Crop/param/Bottom",
+          "keys": [
+            [
+              0,
+              0.5
+            ],
+            [
+              0.22,
+              0.0,
+              2
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "4",
+      "name": "Sweep",
+      "duration": 3.0776,
+      "loop": "loop",
+      "tracks": [
+        {
+          "layer": "120",
+          "param": "param/angle",
+          "keys": [
+            [
+              0.0,
+              0,
+              "hold"
+            ],
+            [
+              0.7694,
+              45,
+              "hold"
+            ],
+            [
+              1.5388,
+              90,
+              "hold"
+            ],
+            [
+              2.3082,
+              -45,
+              "hold"
+            ]
+          ]
+        },
+        {
+          "layer": "120",
+          "param": "param/phase",
+          "keys": [
+            [
+              0,
+              0
+            ],
+            [
+              3.0776,
+              4,
+              0
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "5",
+      "name": "Fade out",
+      "duration": 2.3,
+      "loop": "once",
+      "tracks": [
+        {
+          "layer": "120",
+          "param": "opacity",
+          "keys": [
+            [
+              0,
+              1
+            ],
+            [
+              0.05,
+              0,
+              "hold"
+            ]
+          ]
+        },
+        {
+          "layer": "132",
+          "param": "opacity",
+          "keys": [
+            [
+              0,
+              1
+            ],
+            [
+              0.77,
+              0,
+              "hold"
+            ]
+          ]
+        },
+        {
+          "layer": "131",
+          "param": "opacity",
+          "keys": [
+            [
+              0,
+              1
+            ],
+            [
+              0.89,
+              0,
+              "hold"
+            ]
+          ]
+        },
+        {
+          "layer": "130",
+          "param": "opacity",
+          "keys": [
+            [
+              0,
+              1
+            ],
+            [
+              1.01,
+              0,
+              "hold"
+            ]
+          ]
+        },
+        {
+          "layer": "150",
+          "param": "opacity",
+          "keys": [
+            [
+              0,
+              0.8
+            ],
+            [
+              1.54,
+              0,
+              "hold"
+            ]
+          ]
+        },
+        {
+          "layer": "160",
+          "param": "opacity",
+          "keys": [
+            [
+              0,
+              0.6
+            ],
+            [
+              1.92,
+              0,
+              "hold"
+            ]
+          ]
+        },
+        {
+          "layer": "170",
+          "param": "opacity",
+          "keys": [
+            [
+              0,
+              1
+            ],
+            [
+              2.3,
+              0.25,
+              2
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "6",
+      "name": "Title tilt",
+      "duration": 1.5,
+      "loop": "once",
+      "tracks": [
+        {
+          "layer": "145",
+          "param": "corner/top_left/x",
+          "keys": [
+            [
+              0,
+              0
+            ],
+            [
+              1.5,
+              16,
+              3
+            ]
+          ]
+        },
+        {
+          "layer": "145",
+          "param": "corner/top_right/x",
+          "keys": [
+            [
+              0,
+              0
+            ],
+            [
+              1.5,
+              -16,
+              3
+            ]
+          ]
+        },
+        {
+          "layer": "145",
+          "param": "corner/top_left/y",
+          "keys": [
+            [
+              0,
+              0
+            ],
+            [
+              1.5,
+              10,
+              3
+            ]
+          ]
+        },
+        {
+          "layer": "145",
+          "param": "corner/top_right/y",
+          "keys": [
+            [
+              0,
+              0
+            ],
+            [
+              1.5,
+              2,
+              3
+            ]
+          ]
+        },
+        {
+          "layer": "145",
+          "param": "corner/bottom_right/x",
+          "keys": [
+            [
+              0,
+              0
+            ],
+            [
+              1.5,
+              6,
+              3
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "7",
+      "name": "Corridor",
+      "duration": 3.0776,
+      "loop": "loop",
+      "tracks": [
+        {
+          "layer": "132",
+          "param": "corner/top_right/y",
+          "keys": [
+            [
+              0,
+              30
+            ],
+            [
+              1.5388,
+              40,
+              3
+            ],
+            [
+              3.0776,
+              30,
+              3
+            ]
+          ]
+        },
+        {
+          "layer": "132",
+          "param": "corner/bottom_right/y",
+          "keys": [
+            [
+              0,
+              -30
+            ],
+            [
+              1.5388,
+              -20,
+              3
+            ],
+            [
+              3.0776,
+              -30,
+              3
+            ]
+          ]
+        },
+        {
+          "layer": "132",
+          "param": "corner/top_right/x",
+          "keys": [
+            [
+              0,
+              0
+            ],
+            [
+              1.5388,
+              -30,
+              3
+            ],
+            [
+              3.0776,
+              0,
+              3
+            ]
+          ]
+        },
+        {
+          "layer": "132",
+          "param": "corner/bottom_right/x",
+          "keys": [
+            [
+              0,
+              0
+            ],
+            [
+              1.5388,
+              -30,
+              3
+            ],
+            [
+              3.0776,
+              0,
+              3
+            ]
+          ]
+        },
+        {
+          "layer": "131",
+          "param": "corner/top_left/y",
+          "keys": [
+            [
+              0,
+              30
+            ],
+            [
+              1.5388,
+              20,
+              3
+            ],
+            [
+              3.0776,
+              30,
+              3
+            ]
+          ]
+        },
+        {
+          "layer": "131",
+          "param": "corner/bottom_left/y",
+          "keys": [
+            [
+              0,
+              -30
+            ],
+            [
+              1.5388,
+              -40,
+              3
+            ],
+            [
+              3.0776,
+              -30,
+              3
+            ]
+          ]
+        },
+        {
+          "layer": "131",
+          "param": "corner/top_left/x",
+          "keys": [
+            [
+              0,
+              0
+            ],
+            [
+              1.5388,
+              -30,
+              3
+            ],
+            [
+              3.0776,
+              0,
+              3
+            ]
+          ]
+        },
+        {
+          "layer": "131",
+          "param": "corner/bottom_left/x",
+          "keys": [
+            [
+              0,
+              0
+            ],
+            [
+              1.5388,
+              -30,
+              3
+            ],
+            [
+              3.0776,
+              0,
+              3
+            ]
+          ]
+        },
+        {
+          "layer": "130",
+          "param": "corner/top_left/x",
+          "keys": [
+            [
+              0,
+              34
+            ],
+            [
+              1.5388,
+              22,
+              3
+            ],
+            [
+              3.0776,
+              34,
+              3
+            ]
+          ]
+        },
+        {
+          "layer": "130",
+          "param": "corner/top_right/x",
+          "keys": [
+            [
+              0,
+              -34
+            ],
+            [
+              1.5388,
+              -46,
+              3
+            ],
+            [
+              3.0776,
+              -34,
+              3
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "8",
+      "name": "Spin",
+      "duration": 6.1552,
+      "loop": "loop",
+      "tracks": [
+        {
+          "layer": "170",
+          "param": "rotation",
+          "keys": [
+            [
+              0,
+              -180
+            ],
+            [
+              6.1552,
+              180,
+              0
+            ]
+          ]
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "id": "1",
+      "name": "Flash",
+      "fade": 0.0,
+      "values": [
+        {
+          "layer": "120",
+          "path": "opacity",
+          "value": 1,
+          "time": 0.0
+        },
+        {
+          "layer": "120",
+          "path": "param/count",
+          "value": 1,
+          "time": 0.0
+        },
+        {
+          "layer": "120",
+          "path": "param/width",
+          "value": 1,
+          "time": 0.0
+        },
+        {
+          "layer": "120",
+          "path": "param/angle",
+          "value": 0,
+          "time": 0.0
+        },
+        {
+          "layer": "120",
+          "path": "param/spread",
+          "value": 1,
+          "time": 0.0
+        },
+        {
+          "layer": "120",
+          "path": "param/strobe",
+          "value": 0,
+          "time": 0.0
+        },
+        {
+          "layer": "120",
+          "path": "param/jitter",
+          "value": 0,
+          "time": 0.0
+        },
+        {
+          "layer": "120",
+          "path": "param/grid",
+          "value": false,
+          "time": 0.0
+        },
+        {
+          "layer": "120",
+          "path": "param/tint/r",
+          "value": 1,
+          "time": 0.0
+        },
+        {
+          "layer": "120",
+          "path": "param/tint/g",
+          "value": 1,
+          "time": 0.0
+        },
+        {
+          "layer": "120",
+          "path": "param/tint/b",
+          "value": 1,
+          "time": 0.0
+        }
+      ],
+      "animations": [],
+      "interactions": [],
+      "geometry": {},
+      "categories": {}
+    },
+    {
+      "id": "2",
+      "name": "Cut to black",
+      "fade": 0.0,
+      "values": [
+        {
+          "layer": "114",
+          "path": "opacity",
+          "value": 0,
+          "time": 0.0
+        },
+        {
+          "layer": "120",
+          "path": "opacity",
+          "value": 0,
+          "time": 0.0
+        },
+        {
+          "layer": "130",
+          "path": "opacity",
+          "value": 0,
+          "time": 0.0
+        },
+        {
+          "layer": "131",
+          "path": "opacity",
+          "value": 0,
+          "time": 0.0
+        },
+        {
+          "layer": "132",
+          "path": "opacity",
+          "value": 0,
+          "time": 0.0
+        },
+        {
+          "layer": "140",
+          "path": "opacity",
+          "value": 0,
+          "time": 0.0
+        },
+        {
+          "layer": "145",
+          "path": "opacity",
+          "value": 0,
+          "time": 0.0
+        },
+        {
+          "layer": "150",
+          "path": "opacity",
+          "value": 0,
+          "time": 0.0
+        },
+        {
+          "layer": "160",
+          "path": "opacity",
+          "value": 0,
+          "time": 0.0
+        },
+        {
+          "layer": "170",
+          "path": "opacity",
+          "value": 0,
+          "time": 0.0
+        }
+      ],
+      "animations": [],
+      "interactions": [],
+      "geometry": {},
+      "categories": {}
+    },
+    {
+      "id": "3",
+      "name": "01 · Signal",
+      "fade": 0,
+      "values": [
+        {
+          "layer": "110",
+          "path": "text/content",
+          "value": "NyxMap\nSIGNAL 01 · 78 BPM",
+          "time": 0.35
+        },
+        {
+          "layer": "111",
+          "path": "opacity",
+          "value": 0.75
+        },
+        {
+          "layer": "120",
+          "path": "opacity",
+          "value": 1
+        },
+        {
+          "layer": "0",
+          "path": "interaction/1/enable",
+          "value": true
+        }
+      ],
+      "animations": [],
+      "interactions": [],
+      "geometry": {},
+      "categories": {}
+    },
+    {
+      "id": "4",
+      "name": "02 · Split",
+      "fade": 0.9,
+      "values": [
+        {
+          "layer": "110",
+          "path": "text/content",
+          "value": "SIGNAL 02 · SPLIT",
+          "time": 0.35
+        },
+        {
+          "layer": "120",
+          "path": "param/count",
+          "value": 3
+        },
+        {
+          "layer": "120",
+          "path": "param/width",
+          "value": 0.006
+        },
+        {
+          "layer": "120",
+          "path": "param/spread",
+          "value": 0.22,
+          "easing": "ease_out"
+        },
+        {
+          "layer": "120",
+          "path": "param/hit",
+          "value": 0
+        }
+      ],
+      "animations": [],
+      "interactions": [],
+      "geometry": {},
+      "categories": {}
+    },
+    {
+      "id": "5",
+      "name": "03 · Data",
+      "fade": 0,
+      "values": [
+        {
+          "layer": "110",
+          "path": "text/content",
+          "value": "DATA 0x3F2A\nSTREAM · BARCODE",
+          "time": 0.35
+        },
+        {
+          "layer": "120",
+          "path": "param/count",
+          "value": 2
+        },
+        {
+          "layer": "120",
+          "path": "param/width",
+          "value": 0.003
+        },
+        {
+          "layer": "120",
+          "path": "param/spread",
+          "value": 0.065
+        },
+        {
+          "layer": "120",
+          "path": "param/hit",
+          "value": 0
+        },
+        {
+          "layer": "150",
+          "path": "opacity",
+          "value": 1
+        },
+        {
+          "layer": "150",
+          "path": "blend_mode",
+          "value": "normal"
+        },
+        {
+          "layer": "150",
+          "path": "param/rows",
+          "value": 6
+        },
+        {
+          "layer": "150",
+          "path": "param/speed",
+          "value": 0.9
+        },
+        {
+          "layer": "150",
+          "path": "param/band",
+          "value": 0.06
+        },
+        {
+          "layer": "0",
+          "path": "interaction/3/enable",
+          "value": true
+        }
+      ],
+      "animations": [],
+      "interactions": [],
+      "geometry": {},
+      "categories": {}
+    },
+    {
+      "id": "6",
+      "name": "04 · Structure",
+      "fade": 0.6,
+      "values": [
+        {
+          "layer": "110",
+          "path": "text/content",
+          "value": "STRUCTURE\n6.20 · BASS",
+          "time": 0.35
+        },
+        {
+          "layer": "114",
+          "path": "opacity",
+          "value": 1
+        },
+        {
+          "layer": "114",
+          "path": "param/startColor/r",
+          "value": 0.4
+        },
+        {
+          "layer": "114",
+          "path": "param/startColor/g",
+          "value": 0.62
+        },
+        {
+          "layer": "120",
+          "path": "opacity",
+          "value": 0
+        },
+        {
+          "layer": "120",
+          "path": "param/count",
+          "value": 1
+        },
+        {
+          "layer": "120",
+          "path": "param/width",
+          "value": 0.004
+        },
+        {
+          "layer": "120",
+          "path": "param/spread",
+          "value": 1
+        },
+        {
+          "layer": "120",
+          "path": "param/hit",
+          "value": 0
+        },
+        {
+          "layer": "150",
+          "path": "blend_mode",
+          "value": "difference"
+        },
+        {
+          "layer": "150",
+          "path": "param/rows",
+          "value": 48
+        },
+        {
+          "layer": "150",
+          "path": "param/density",
+          "value": 0.12
+        },
+        {
+          "layer": "150",
+          "path": "param/speed",
+          "value": 0.3
+        },
+        {
+          "layer": "150",
+          "path": "param/flicker",
+          "value": 0
+        },
+        {
+          "layer": "150",
+          "path": "param/band",
+          "value": 1,
+          "time": 0.0
+        },
+        {
+          "layer": "170",
+          "path": "opacity",
+          "value": 1
+        },
+        {
+          "layer": "0",
+          "path": "interaction/1/enable",
+          "value": false
+        },
+        {
+          "layer": "0",
+          "path": "interaction/2/enable",
+          "value": true
+        },
+        {
+          "layer": "0",
+          "path": "interaction/5/enable",
+          "value": true
+        },
+        {
+          "layer": "0",
+          "path": "interaction/12/enable",
+          "value": true
+        }
+      ],
+      "animations": [],
+      "interactions": [],
+      "geometry": {},
+      "categories": {}
+    },
+    {
+      "id": "7",
+      "name": "05 · Windows",
+      "fade": 0,
+      "values": [
+        {
+          "layer": "110",
+          "path": "text/content",
+          "value": "REFRAME\nA · B · C",
+          "time": 0.35
+        },
+        {
+          "layer": "114",
+          "path": "opacity",
+          "value": 0
+        },
+        {
+          "layer": "114",
+          "path": "param/startColor/r",
+          "value": 1
+        },
+        {
+          "layer": "114",
+          "path": "param/startColor/g",
+          "value": 1
+        },
+        {
+          "layer": "120",
+          "path": "param/jitter",
+          "value": 0
+        },
+        {
+          "layer": "130",
+          "path": "opacity",
+          "value": 1
+        },
+        {
+          "layer": "131",
+          "path": "opacity",
+          "value": 1
+        },
+        {
+          "layer": "132",
+          "path": "opacity",
+          "value": 1
+        },
+        {
+          "layer": "150",
+          "path": "opacity",
+          "value": 0
+        },
+        {
+          "layer": "150",
+          "path": "param/rows",
+          "value": 36
+        },
+        {
+          "layer": "150",
+          "path": "param/density",
+          "value": 0.45
+        },
+        {
+          "layer": "150",
+          "path": "param/speed",
+          "value": 1.0
+        },
+        {
+          "layer": "150",
+          "path": "param/flicker",
+          "value": 0
+        },
+        {
+          "layer": "160",
+          "path": "param/thickness",
+          "value": 1.6
+        },
+        {
+          "layer": "170",
+          "path": "opacity",
+          "value": 0
+        },
+        {
+          "layer": "170",
+          "path": "param/speed",
+          "value": 0.9
+        },
+        {
+          "layer": "170",
+          "path": "param/cell",
+          "value": 2
+        },
+        {
+          "layer": "170",
+          "path": "param/glow",
+          "value": 0.5
+        },
+        {
+          "layer": "170",
+          "path": "param/fov",
+          "value": 70
+        },
+        {
+          "layer": "170",
+          "path": "param/hit",
+          "value": 0
+        },
+        {
+          "layer": "0",
+          "path": "interaction/12/enable",
+          "value": false
+        }
+      ],
+      "animations": [],
+      "interactions": [],
+      "geometry": {},
+      "categories": {}
+    },
+    {
+      "id": "8",
+      "name": "06 · Density",
+      "fade": 0.4,
+      "values": [
+        {
+          "layer": "110",
+          "path": "text/content",
+          "value": "DENSITY\nMATRIX 36 × 64",
+          "time": 0.35
+        },
+        {
+          "layer": "130",
+          "path": "rotation",
+          "value": 0
+        },
+        {
+          "layer": "131",
+          "path": "rotation",
+          "value": 0
+        },
+        {
+          "layer": "132",
+          "path": "rotation",
+          "value": 0
+        },
+        {
+          "layer": "150",
+          "path": "param/mode",
+          "value": 1
+        },
+        {
+          "layer": "150",
+          "path": "param/density",
+          "value": 0.4
+        },
+        {
+          "layer": "150",
+          "path": "param/flicker",
+          "value": 0
+        },
+        {
+          "layer": "170",
+          "path": "param/speed",
+          "value": 1.4
+        },
+        {
+          "layer": "170",
+          "path": "param/glow",
+          "value": 0.5
+        },
+        {
+          "layer": "170",
+          "path": "param/warp",
+          "value": 0.5
+        },
+        {
+          "layer": "170",
+          "path": "param/hit",
+          "value": 0
+        }
+      ],
+      "animations": [],
+      "interactions": [],
+      "geometry": {},
+      "categories": {}
+    },
+    {
+      "id": "9",
+      "name": "07 · Impact",
+      "fade": 0.5,
+      "values": [
+        {
+          "layer": "110",
+          "path": "text/content",
+          "value": "IMPACT\n11.59",
+          "time": 0.35
+        },
+        {
+          "layer": "120",
+          "path": "opacity",
+          "value": 0,
+          "time": 0.45,
+          "easing": "ease_out"
+        },
+        {
+          "layer": "120",
+          "path": "param/count",
+          "value": 1
+        },
+        {
+          "layer": "120",
+          "path": "param/width",
+          "value": 0.004
+        },
+        {
+          "layer": "120",
+          "path": "param/angle",
+          "value": 90
+        },
+        {
+          "layer": "120",
+          "path": "param/spread",
+          "value": 1
+        },
+        {
+          "layer": "120",
+          "path": "param/jitter",
+          "value": 0
+        },
+        {
+          "layer": "120",
+          "path": "param/strobe",
+          "value": 0
+        },
+        {
+          "layer": "120",
+          "path": "param/grid",
+          "value": false
+        },
+        {
+          "layer": "120",
+          "path": "param/tint/r",
+          "value": 1
+        },
+        {
+          "layer": "120",
+          "path": "param/tint/g",
+          "value": 1
+        },
+        {
+          "layer": "120",
+          "path": "param/tint/b",
+          "value": 1
+        },
+        {
+          "layer": "130",
+          "path": "opacity",
+          "value": 0
+        },
+        {
+          "layer": "130",
+          "path": "rotation",
+          "value": 0
+        },
+        {
+          "layer": "131",
+          "path": "opacity",
+          "value": 0
+        },
+        {
+          "layer": "131",
+          "path": "rotation",
+          "value": 0
+        },
+        {
+          "layer": "132",
+          "path": "opacity",
+          "value": 0
+        },
+        {
+          "layer": "132",
+          "path": "rotation",
+          "value": 0
+        },
+        {
+          "layer": "150",
+          "path": "param/mode",
+          "value": 0
+        },
+        {
+          "layer": "150",
+          "path": "param/rows",
+          "value": 24
+        },
+        {
+          "layer": "150",
+          "path": "param/density",
+          "value": 0.5
+        },
+        {
+          "layer": "150",
+          "path": "param/speed",
+          "value": 0.6
+        },
+        {
+          "layer": "150",
+          "path": "param/flicker",
+          "value": 0
+        },
+        {
+          "layer": "170",
+          "path": "opacity",
+          "value": 1
+        },
+        {
+          "layer": "170",
+          "path": "param/speed",
+          "value": 2.2
+        },
+        {
+          "layer": "170",
+          "path": "param/glow",
+          "value": 0.5
+        },
+        {
+          "layer": "170",
+          "path": "param/warp",
+          "value": 0.8
+        },
+        {
+          "layer": "170",
+          "path": "param/hit",
+          "value": 0
+        },
+        {
+          "layer": "170",
+          "path": "param/invert",
+          "value": true,
+          "time": 0.0
+        },
+        {
+          "layer": "0",
+          "path": "interaction/2/enable",
+          "value": false
+        },
+        {
+          "layer": "0",
+          "path": "interaction/3/enable",
+          "value": false
+        }
+      ],
+      "animations": [],
+      "interactions": [],
+      "geometry": {},
+      "categories": {}
+    },
+    {
+      "id": "10",
+      "name": "08 · Wave",
+      "fade": 0.8,
+      "values": [
+        {
+          "layer": "110",
+          "path": "text/content",
+          "value": "WAVE\nPROGRAM · 2 CH",
+          "time": 0.35
+        },
+        {
+          "layer": "150",
+          "path": "opacity",
+          "value": 1
+        },
+        {
+          "layer": "150",
+          "path": "blend_mode",
+          "value": "normal"
+        },
+        {
+          "layer": "150",
+          "path": "param/mode",
+          "value": 2
+        },
+        {
+          "layer": "150",
+          "path": "param/rows",
+          "value": 5
+        },
+        {
+          "layer": "150",
+          "path": "param/band",
+          "value": 0.06
+        },
+        {
+          "layer": "150",
+          "path": "param/center",
+          "value": 0.06
+        },
+        {
+          "layer": "160",
+          "path": "opacity",
+          "value": 1
+        },
+        {
+          "layer": "160",
+          "path": "param/tint/r",
+          "value": 0.55
+        },
+        {
+          "layer": "160",
+          "path": "param/tint/g",
+          "value": 0.86
+        },
+        {
+          "layer": "170",
+          "path": "opacity",
+          "value": 0.35
+        },
+        {
+          "layer": "170",
+          "path": "param/speed",
+          "value": 0.4
+        },
+        {
+          "layer": "170",
+          "path": "param/glow",
+          "value": 0.5
+        },
+        {
+          "layer": "170",
+          "path": "param/warp",
+          "value": 0
+        },
+        {
+          "layer": "170",
+          "path": "param/invert",
+          "value": false,
+          "time": 0.0
+        },
+        {
+          "layer": "0",
+          "path": "interaction/3/enable",
+          "value": true
+        },
+        {
+          "layer": "0",
+          "path": "interaction/4/enable",
+          "value": true
+        },
+        {
+          "layer": "0",
+          "path": "interaction/7/enable",
+          "value": true
+        },
+        {
+          "layer": "0",
+          "path": "interaction/12/enable",
+          "value": true
+        }
+      ],
+      "animations": [],
+      "interactions": [],
+      "geometry": {},
+      "categories": {}
+    },
+    {
+      "id": "11",
+      "name": "09 · Title",
+      "fade": 0.6,
+      "values": [
+        {
+          "layer": "110",
+          "path": "text/content",
+          "value": "NyxMap\nINSIDE · AROUND",
+          "time": 0.35
+        },
+        {
+          "layer": "120",
+          "path": "param/jitter",
+          "value": 0
+        },
+        {
+          "layer": "140",
+          "path": "opacity",
+          "value": 1,
+          "time": 0.0
+        },
+        {
+          "layer": "145",
+          "path": "opacity",
+          "value": 1,
+          "time": 0.0
+        },
+        {
+          "layer": "150",
+          "path": "opacity",
+          "value": 0
+        },
+        {
+          "layer": "150",
+          "path": "blend_mode",
+          "value": "difference"
+        },
+        {
+          "layer": "150",
+          "path": "param/mode",
+          "value": 0
+        },
+        {
+          "layer": "150",
+          "path": "param/rows",
+          "value": 24
+        },
+        {
+          "layer": "150",
+          "path": "param/flicker",
+          "value": 0
+        },
+        {
+          "layer": "150",
+          "path": "param/band",
+          "value": 1
+        },
+        {
+          "layer": "150",
+          "path": "param/center",
+          "value": 0.5
+        },
+        {
+          "layer": "160",
+          "path": "opacity",
+          "value": 0
+        },
+        {
+          "layer": "160",
+          "path": "param/lines",
+          "value": 64
+        },
+        {
+          "layer": "160",
+          "path": "param/amplitude",
+          "value": 1.4
+        },
+        {
+          "layer": "160",
+          "path": "param/depth",
+          "value": 0.85
+        },
+        {
+          "layer": "160",
+          "path": "param/thickness",
+          "value": 2.6
+        },
+        {
+          "layer": "160",
+          "path": "param/hit",
+          "value": 0
+        },
+        {
+          "layer": "160",
+          "path": "param/tint/r",
+          "value": 0.75
+        },
+        {
+          "layer": "160",
+          "path": "param/tint/g",
+          "value": 0.95
+        },
+        {
+          "layer": "170",
+          "path": "opacity",
+          "value": 1
+        },
+        {
+          "layer": "170",
+          "path": "param/speed",
+          "value": 0.3
+        },
+        {
+          "layer": "170",
+          "path": "param/cell",
+          "value": 2
+        },
+        {
+          "layer": "170",
+          "path": "param/glow",
+          "value": 0.9
+        },
+        {
+          "layer": "170",
+          "path": "param/fov",
+          "value": 70
+        },
+        {
+          "layer": "170",
+          "path": "param/tint/g",
+          "value": 0.62
+        },
+        {
+          "layer": "170",
+          "path": "param/tint/b",
+          "value": 0.22
+        },
+        {
+          "layer": "0",
+          "path": "interaction/3/enable",
+          "value": false
+        }
+      ],
+      "animations": [],
+      "interactions": [],
+      "geometry": {},
+      "categories": {}
+    },
+    {
+      "id": "12",
+      "name": "10 · Tunnel",
+      "fade": 0,
+      "values": [
+        {
+          "layer": "110",
+          "path": "text/content",
+          "value": "TUNNEL\nAXIS Z · 8 SEGMENTS",
+          "time": 0.35
+        },
+        {
+          "layer": "120",
+          "path": "opacity",
+          "value": 0.8
+        },
+        {
+          "layer": "120",
+          "path": "param/count",
+          "value": 14
+        },
+        {
+          "layer": "120",
+          "path": "param/width",
+          "value": 0.05
+        },
+        {
+          "layer": "120",
+          "path": "param/jitter",
+          "value": 0
+        },
+        {
+          "layer": "120",
+          "path": "param/mirror",
+          "value": true
+        },
+        {
+          "layer": "140",
+          "path": "opacity",
+          "value": 0
+        },
+        {
+          "layer": "145",
+          "path": "opacity",
+          "value": 0
+        },
+        {
+          "layer": "145",
+          "path": "corner/top_left/x",
+          "value": 0
+        },
+        {
+          "layer": "145",
+          "path": "corner/top_left/y",
+          "value": 0
+        },
+        {
+          "layer": "145",
+          "path": "corner/top_right/x",
+          "value": 0
+        },
+        {
+          "layer": "145",
+          "path": "corner/top_right/y",
+          "value": 0
+        },
+        {
+          "layer": "145",
+          "path": "corner/bottom_right/x",
+          "value": 0
+        },
+        {
+          "layer": "160",
+          "path": "param/lines",
+          "value": 40
+        },
+        {
+          "layer": "160",
+          "path": "param/amplitude",
+          "value": 0.8
+        },
+        {
+          "layer": "160",
+          "path": "param/depth",
+          "value": 0.7
+        },
+        {
+          "layer": "160",
+          "path": "param/thickness",
+          "value": 1.6
+        },
+        {
+          "layer": "160",
+          "path": "param/hit",
+          "value": 0
+        },
+        {
+          "layer": "160",
+          "path": "param/tint/r",
+          "value": 1
+        },
+        {
+          "layer": "160",
+          "path": "param/tint/g",
+          "value": 1
+        },
+        {
+          "layer": "170",
+          "path": "param/speed",
+          "value": 3.5
+        },
+        {
+          "layer": "170",
+          "path": "param/cell",
+          "value": 2
+        },
+        {
+          "layer": "170",
+          "path": "param/thickness",
+          "value": 0.02
+        },
+        {
+          "layer": "170",
+          "path": "param/glow",
+          "value": 1.1
+        },
+        {
+          "layer": "170",
+          "path": "param/axes",
+          "value": 2
+        },
+        {
+          "layer": "170",
+          "path": "param/fov",
+          "value": 115
+        },
+        {
+          "layer": "170",
+          "path": "param/tint/r",
+          "value": 0.4
+        },
+        {
+          "layer": "170",
+          "path": "param/tint/b",
+          "value": 1.0
+        },
+        {
+          "layer": "170",
+          "path": "scale/x",
+          "value": 170
+        },
+        {
+          "layer": "170",
+          "path": "scale/y",
+          "value": 170
+        },
+        {
+          "layer": "170",
+          "path": "fx/Kaleidoscope/enable",
+          "value": true
+        },
+        {
+          "layer": "170",
+          "path": "fx/Kaleidoscope/param/segments",
+          "value": 8
+        },
+        {
+          "layer": "170",
+          "path": "fx/Trails/enable",
+          "value": true
+        },
+        {
+          "layer": "0",
+          "path": "interaction/1/enable",
+          "value": true
+        },
+        {
+          "layer": "0",
+          "path": "interaction/2/enable",
+          "value": true
+        },
+        {
+          "layer": "0",
+          "path": "interaction/4/enable",
+          "value": false
+        },
+        {
+          "layer": "0",
+          "path": "interaction/5/enable",
+          "value": false
+        },
+        {
+          "layer": "0",
+          "path": "interaction/7/enable",
+          "value": false
+        }
+      ],
+      "animations": [],
+      "interactions": [],
+      "geometry": {},
+      "categories": {}
+    },
+    {
+      "id": "13",
+      "name": "11 · Saturation",
+      "fade": 0,
+      "values": [
+        {
+          "layer": "110",
+          "path": "text/content",
+          "value": "SATURATION\n///////////////",
+          "time": 0.35
+        },
+        {
+          "layer": "120",
+          "path": "opacity",
+          "value": 1
+        },
+        {
+          "layer": "120",
+          "path": "param/count",
+          "value": 6
+        },
+        {
+          "layer": "120",
+          "path": "param/width",
+          "value": 0.12
+        },
+        {
+          "layer": "120",
+          "path": "param/phase",
+          "value": 0
+        },
+        {
+          "layer": "120",
+          "path": "param/angle",
+          "value": 0
+        },
+        {
+          "layer": "120",
+          "path": "param/jitter",
+          "value": 0
+        },
+        {
+          "layer": "120",
+          "path": "param/hit",
+          "value": 0
+        },
+        {
+          "layer": "120",
+          "path": "param/strobe",
+          "value": 5.199
+        },
+        {
+          "layer": "120",
+          "path": "param/mirror",
+          "value": false
+        },
+        {
+          "layer": "120",
+          "path": "param/tint/g",
+          "value": 0.12
+        },
+        {
+          "layer": "120",
+          "path": "param/tint/b",
+          "value": 0.08
+        },
+        {
+          "layer": "150",
+          "path": "opacity",
+          "value": 1
+        },
+        {
+          "layer": "150",
+          "path": "param/rows",
+          "value": 64
+        },
+        {
+          "layer": "150",
+          "path": "param/density",
+          "value": 0.55
+        },
+        {
+          "layer": "150",
+          "path": "param/speed",
+          "value": 1.8
+        },
+        {
+          "layer": "150",
+          "path": "fx/Zoom_Volumetric/enable",
+          "value": true
+        },
+        {
+          "layer": "150",
+          "path": "fx/VHS_Glitch/enable",
+          "value": true
+        },
+        {
+          "layer": "160",
+          "path": "param/thickness",
+          "value": 1.6
+        },
+        {
+          "layer": "170",
+          "path": "param/speed",
+          "value": 3.2
+        },
+        {
+          "layer": "170",
+          "path": "param/cell",
+          "value": 2
+        },
+        {
+          "layer": "170",
+          "path": "param/thickness",
+          "value": 0.012
+        },
+        {
+          "layer": "170",
+          "path": "param/glow",
+          "value": 0.5
+        },
+        {
+          "layer": "170",
+          "path": "param/warp",
+          "value": 1.1
+        },
+        {
+          "layer": "170",
+          "path": "param/axes",
+          "value": 0
+        },
+        {
+          "layer": "170",
+          "path": "param/fov",
+          "value": 70
+        },
+        {
+          "layer": "170",
+          "path": "param/hit",
+          "value": 0
+        },
+        {
+          "layer": "170",
+          "path": "param/tint/r",
+          "value": 1
+        },
+        {
+          "layer": "170",
+          "path": "param/tint/g",
+          "value": 1
+        },
+        {
+          "layer": "170",
+          "path": "rotation",
+          "value": 0
+        },
+        {
+          "layer": "170",
+          "path": "scale/x",
+          "value": 100
+        },
+        {
+          "layer": "170",
+          "path": "scale/y",
+          "value": 100
+        },
+        {
+          "layer": "170",
+          "path": "fx/Kaleidoscope/enable",
+          "value": false
+        },
+        {
+          "layer": "170",
+          "path": "fx/Kaleidoscope/param/segments",
+          "value": 6
+        },
+        {
+          "layer": "170",
+          "path": "fx/Trails/enable",
+          "value": false
+        },
+        {
+          "layer": "0",
+          "path": "interaction/1/enable",
+          "value": false
+        },
+        {
+          "layer": "0",
+          "path": "interaction/5/enable",
+          "value": true
+        },
+        {
+          "layer": "0",
+          "path": "interaction/6/enable",
+          "value": true
+        },
+        {
+          "layer": "0",
+          "path": "interaction/10/enable",
+          "value": true
+        }
+      ],
+      "animations": [],
+      "interactions": [],
+      "geometry": {},
+      "categories": {}
+    },
+    {
+      "id": "14",
+      "name": "12 · Fall",
+      "fade": 0.8,
+      "values": [
+        {
+          "layer": "110",
+          "path": "text/content",
+          "value": "FALL",
+          "time": 0.35
+        },
+        {
+          "layer": "120",
+          "path": "opacity",
+          "value": 0.6
+        },
+        {
+          "layer": "120",
+          "path": "param/count",
+          "value": 3
+        },
+        {
+          "layer": "120",
+          "path": "param/width",
+          "value": 0.08
+        },
+        {
+          "layer": "120",
+          "path": "param/jitter",
+          "value": 0
+        },
+        {
+          "layer": "120",
+          "path": "param/strobe",
+          "value": 0
+        },
+        {
+          "layer": "150",
+          "path": "param/density",
+          "value": 0.4
+        },
+        {
+          "layer": "150",
+          "path": "param/speed",
+          "value": 0.8
+        },
+        {
+          "layer": "150",
+          "path": "param/glitch",
+          "value": 0
+        },
+        {
+          "layer": "150",
+          "path": "param/invert",
+          "value": false
+        },
+        {
+          "layer": "150",
+          "path": "fx/Zoom_Volumetric/param/GAIN",
+          "value": 0.18
+        },
+        {
+          "layer": "150",
+          "path": "fx/VHS_Glitch/param/analogDistort",
+          "value": 0
+        },
+        {
+          "layer": "160",
+          "path": "param/thickness",
+          "value": 1.6
+        },
+        {
+          "layer": "170",
+          "path": "param/speed",
+          "value": 0.6,
+          "easing": "ease_out"
+        },
+        {
+          "layer": "170",
+          "path": "param/cell",
+          "value": 2
+        },
+        {
+          "layer": "170",
+          "path": "param/glow",
+          "value": 0.5
+        },
+        {
+          "layer": "170",
+          "path": "param/warp",
+          "value": 0.4
+        },
+        {
+          "layer": "170",
+          "path": "param/fov",
+          "value": 70
+        },
+        {
+          "layer": "170",
+          "path": "param/hit",
+          "value": 0
+        },
+        {
+          "layer": "0",
+          "path": "interaction/5/enable",
+          "value": false
+        },
+        {
+          "layer": "0",
+          "path": "interaction/12/enable",
+          "value": false
+        }
+      ],
+      "animations": [],
+      "interactions": [],
+      "geometry": {},
+      "categories": {}
+    },
+    {
+      "id": "15",
+      "name": "13 · Void",
+      "fade": 0,
+      "values": [
+        {
+          "layer": "110",
+          "path": "text/content",
+          "value": "—",
+          "time": 0.35
+        },
+        {
+          "layer": "120",
+          "path": "opacity",
+          "value": 1
+        },
+        {
+          "layer": "120",
+          "path": "param/count",
+          "value": 1
+        },
+        {
+          "layer": "120",
+          "path": "param/width",
+          "value": 0.002
+        },
+        {
+          "layer": "120",
+          "path": "param/angle",
+          "value": 90
+        },
+        {
+          "layer": "120",
+          "path": "param/tint/g",
+          "value": 1
+        },
+        {
+          "layer": "120",
+          "path": "param/tint/b",
+          "value": 1
+        },
+        {
+          "layer": "150",
+          "path": "opacity",
+          "value": 0
+        },
+        {
+          "layer": "150",
+          "path": "param/rows",
+          "value": 24
+        },
+        {
+          "layer": "150",
+          "path": "param/density",
+          "value": 0.5
+        },
+        {
+          "layer": "150",
+          "path": "param/speed",
+          "value": 0.6
+        },
+        {
+          "layer": "150",
+          "path": "param/glitch",
+          "value": 0
+        },
+        {
+          "layer": "150",
+          "path": "param/invert",
+          "value": false
+        },
+        {
+          "layer": "150",
+          "path": "fx/Zoom_Volumetric/enable",
+          "value": false
+        },
+        {
+          "layer": "150",
+          "path": "fx/Zoom_Volumetric/param/GAIN",
+          "value": 0.28
+        },
+        {
+          "layer": "150",
+          "path": "fx/VHS_Glitch/enable",
+          "value": false
+        },
+        {
+          "layer": "150",
+          "path": "fx/VHS_Glitch/param/analogDistort",
+          "value": 0
+        },
+        {
+          "layer": "170",
+          "path": "opacity",
+          "value": 0
+        },
+        {
+          "layer": "170",
+          "path": "param/speed",
+          "value": 0.5
+        },
+        {
+          "layer": "170",
+          "path": "param/warp",
+          "value": 0
+        },
+        {
+          "layer": "170",
+          "path": "param/hit",
+          "value": 0
+        },
+        {
+          "layer": "0",
+          "path": "interaction/2/enable",
+          "value": false
+        },
+        {
+          "layer": "0",
+          "path": "interaction/6/enable",
+          "value": false
+        },
+        {
+          "layer": "0",
+          "path": "interaction/10/enable",
+          "value": false
+        }
+      ],
+      "animations": [],
+      "interactions": [],
+      "geometry": {},
+      "categories": {}
+    },
+    {
+      "id": "16",
+      "name": "14 · Corridor",
+      "fade": 0.4,
+      "values": [
+        {
+          "layer": "110",
+          "path": "text/content",
+          "value": "CORRIDOR\nTHREE PLANES · MAPPED",
+          "time": 0.35
+        },
+        {
+          "layer": "114",
+          "path": "opacity",
+          "value": 1
+        },
+        {
+          "layer": "114",
+          "path": "param/startColor/g",
+          "value": 0.18
+        },
+        {
+          "layer": "114",
+          "path": "param/startColor/b",
+          "value": 0.62
+        },
+        {
+          "layer": "114",
+          "path": "param/endColor/g",
+          "value": 0.58
+        },
+        {
+          "layer": "114",
+          "path": "param/endColor/b",
+          "value": 0.12
+        },
+        {
+          "layer": "120",
+          "path": "opacity",
+          "value": 0
+        },
+        {
+          "layer": "120",
+          "path": "param/width",
+          "value": 0.004
+        },
+        {
+          "layer": "130",
+          "path": "opacity",
+          "value": 1
+        },
+        {
+          "layer": "130",
+          "path": "fx/Soft_Crop/enable",
+          "value": true
+        },
+        {
+          "layer": "130",
+          "path": "fx/Soft_Crop/param/Top",
+          "value": 1
+        },
+        {
+          "layer": "130",
+          "path": "fx/Soft_Crop/param/Bottom",
+          "value": 0
+        },
+        {
+          "layer": "130",
+          "path": "fx/Soft_Crop/param/Left",
+          "value": 0.0
+        },
+        {
+          "layer": "130",
+          "path": "fx/Soft_Crop/param/Right",
+          "value": 1.0
+        },
+        {
+          "layer": "130",
+          "path": "fx/Soft_Crop/param/TopFeather",
+          "value": 0.0
+        },
+        {
+          "layer": "130",
+          "path": "fx/Soft_Crop/param/BottomFeather",
+          "value": 0.0
+        },
+        {
+          "layer": "130",
+          "path": "fx/Soft_Crop/param/LeftFeather",
+          "value": 0.0
+        },
+        {
+          "layer": "130",
+          "path": "fx/Soft_Crop/param/RightFeather",
+          "value": 0.0
+        },
+        {
+          "layer": "130",
+          "path": "corner/top_left/x",
+          "value": 34
+        },
+        {
+          "layer": "130",
+          "path": "corner/top_right/x",
+          "value": -34
+        },
+        {
+          "layer": "130",
+          "path": "position/x",
+          "value": 960.0
+        },
+        {
+          "layer": "130",
+          "path": "position/y",
+          "value": 920.0
+        },
+        {
+          "layer": "130",
+          "path": "scale/x",
+          "value": 100.0
+        },
+        {
+          "layer": "130",
+          "path": "scale/y",
+          "value": 29.62962962962963
+        },
+        {
+          "layer": "130",
+          "path": "roi/left",
+          "value": 0.0
+        },
+        {
+          "layer": "130",
+          "path": "roi/top",
+          "value": 0.4
+        },
+        {
+          "layer": "130",
+          "path": "roi/right",
+          "value": 1.0
+        },
+        {
+          "layer": "130",
+          "path": "roi/bottom",
+          "value": 1.0
+        },
+        {
+          "layer": "131",
+          "path": "opacity",
+          "value": 1
+        },
+        {
+          "layer": "131",
+          "path": "fx/Soft_Crop/enable",
+          "value": true
+        },
+        {
+          "layer": "131",
+          "path": "fx/Soft_Crop/param/Top",
+          "value": 1
+        },
+        {
+          "layer": "131",
+          "path": "fx/Soft_Crop/param/Bottom",
+          "value": 0
+        },
+        {
+          "layer": "131",
+          "path": "fx/Soft_Crop/param/Left",
+          "value": 0.0
+        },
+        {
+          "layer": "131",
+          "path": "fx/Soft_Crop/param/Right",
+          "value": 1.0
+        },
+        {
+          "layer": "131",
+          "path": "fx/Soft_Crop/param/TopFeather",
+          "value": 0.0
+        },
+        {
+          "layer": "131",
+          "path": "fx/Soft_Crop/param/BottomFeather",
+          "value": 0.0
+        },
+        {
+          "layer": "131",
+          "path": "fx/Soft_Crop/param/LeftFeather",
+          "value": 0.0
+        },
+        {
+          "layer": "131",
+          "path": "fx/Soft_Crop/param/RightFeather",
+          "value": 0.0
+        },
+        {
+          "layer": "131",
+          "path": "corner/top_left/y",
+          "value": 30
+        },
+        {
+          "layer": "131",
+          "path": "corner/bottom_left/y",
+          "value": -30
+        },
+        {
+          "layer": "131",
+          "path": "position/x",
+          "value": 1440.0
+        },
+        {
+          "layer": "131",
+          "path": "position/y",
+          "value": 380.0
+        },
+        {
+          "layer": "131",
+          "path": "scale/x",
+          "value": 50.0
+        },
+        {
+          "layer": "131",
+          "path": "scale/y",
+          "value": 70.37037037037037
+        },
+        {
+          "layer": "131",
+          "path": "roi/left",
+          "value": 0.5
+        },
+        {
+          "layer": "131",
+          "path": "roi/top",
+          "value": 0.0
+        },
+        {
+          "layer": "131",
+          "path": "roi/right",
+          "value": 1.0
+        },
+        {
+          "layer": "131",
+          "path": "roi/bottom",
+          "value": 1.0
+        },
+        {
+          "layer": "132",
+          "path": "opacity",
+          "value": 1
+        },
+        {
+          "layer": "132",
+          "path": "fx/Soft_Crop/enable",
+          "value": true
+        },
+        {
+          "layer": "132",
+          "path": "fx/Soft_Crop/param/Top",
+          "value": 1
+        },
+        {
+          "layer": "132",
+          "path": "fx/Soft_Crop/param/Bottom",
+          "value": 0
+        },
+        {
+          "layer": "132",
+          "path": "fx/Soft_Crop/param/Left",
+          "value": 0.0
+        },
+        {
+          "layer": "132",
+          "path": "fx/Soft_Crop/param/Right",
+          "value": 1.0
+        },
+        {
+          "layer": "132",
+          "path": "fx/Soft_Crop/param/TopFeather",
+          "value": 0.0
+        },
+        {
+          "layer": "132",
+          "path": "fx/Soft_Crop/param/BottomFeather",
+          "value": 0.0
+        },
+        {
+          "layer": "132",
+          "path": "fx/Soft_Crop/param/LeftFeather",
+          "value": 0.0
+        },
+        {
+          "layer": "132",
+          "path": "fx/Soft_Crop/param/RightFeather",
+          "value": 0.0
+        },
+        {
+          "layer": "132",
+          "path": "corner/top_right/y",
+          "value": 30
+        },
+        {
+          "layer": "132",
+          "path": "corner/bottom_right/y",
+          "value": -30
+        },
+        {
+          "layer": "132",
+          "path": "position/x",
+          "value": 480.0
+        },
+        {
+          "layer": "132",
+          "path": "position/y",
+          "value": 380.0
+        },
+        {
+          "layer": "132",
+          "path": "scale/x",
+          "value": 50.0
+        },
+        {
+          "layer": "132",
+          "path": "scale/y",
+          "value": 70.37037037037037
+        },
+        {
+          "layer": "132",
+          "path": "roi/left",
+          "value": 0.0
+        },
+        {
+          "layer": "132",
+          "path": "roi/top",
+          "value": 0.0
+        },
+        {
+          "layer": "132",
+          "path": "roi/right",
+          "value": 0.5
+        },
+        {
+          "layer": "132",
+          "path": "roi/bottom",
+          "value": 1.0
+        },
+        {
+          "layer": "150",
+          "path": "param/mode",
+          "value": 1
+        },
+        {
+          "layer": "150",
+          "path": "param/rows",
+          "value": 20
+        },
+        {
+          "layer": "150",
+          "path": "param/density",
+          "value": 0.45
+        },
+        {
+          "layer": "150",
+          "path": "param/speed",
+          "value": 1.2
+        },
+        {
+          "layer": "160",
+          "path": "opacity",
+          "value": 1
+        },
+        {
+          "layer": "160",
+          "path": "param/amplitude",
+          "value": 1.1
+        },
+        {
+          "layer": "160",
+          "path": "param/depth",
+          "value": 0.9
+        },
+        {
+          "layer": "170",
+          "path": "param/speed",
+          "value": 1.0
+        },
+        {
+          "layer": "0",
+          "path": "interaction/2/enable",
+          "value": true
+        },
+        {
+          "layer": "0",
+          "path": "interaction/3/enable",
+          "value": true
+        },
+        {
+          "layer": "0",
+          "path": "interaction/4/enable",
+          "value": true
+        },
+        {
+          "layer": "0",
+          "path": "interaction/7/enable",
+          "value": true
+        },
+        {
+          "layer": "0",
+          "path": "interaction/12/enable",
+          "value": true
+        }
+      ],
+      "animations": [],
+      "interactions": [],
+      "geometry": {},
+      "categories": {}
+    },
+    {
+      "id": "17",
+      "name": "15 · Grid",
+      "fade": 0,
+      "values": [
+        {
+          "layer": "110",
+          "path": "text/content",
+          "value": "GRID\n6 × 6 · OUTLINE",
+          "time": 0.35
+        },
+        {
+          "layer": "114",
+          "path": "opacity",
+          "value": 0
+        },
+        {
+          "layer": "114",
+          "path": "param/startColor/g",
+          "value": 1
+        },
+        {
+          "layer": "114",
+          "path": "param/startColor/b",
+          "value": 1
+        },
+        {
+          "layer": "114",
+          "path": "param/endColor/g",
+          "value": 1
+        },
+        {
+          "layer": "114",
+          "path": "param/endColor/b",
+          "value": 1
+        },
+        {
+          "layer": "120",
+          "path": "opacity",
+          "value": 1
+        },
+        {
+          "layer": "120",
+          "path": "param/count",
+          "value": 6
+        },
+        {
+          "layer": "120",
+          "path": "param/width",
+          "value": 0.98
+        },
+        {
+          "layer": "120",
+          "path": "param/angle",
+          "value": 0
+        },
+        {
+          "layer": "120",
+          "path": "param/jitter",
+          "value": 0
+        },
+        {
+          "layer": "120",
+          "path": "param/outline",
+          "value": true
+        },
+        {
+          "layer": "120",
+          "path": "param/grid",
+          "value": true
+        },
+        {
+          "layer": "130",
+          "path": "corner/top_left/x",
+          "value": 0
+        },
+        {
+          "layer": "130",
+          "path": "corner/top_right/x",
+          "value": 0
+        },
+        {
+          "layer": "130",
+          "path": "position/x",
+          "value": 1605.0
+        },
+        {
+          "layer": "130",
+          "path": "position/y",
+          "value": 540.0
+        },
+        {
+          "layer": "130",
+          "path": "scale/x",
+          "value": 32.8125
+        },
+        {
+          "layer": "130",
+          "path": "scale/y",
+          "value": 100.0
+        },
+        {
+          "layer": "130",
+          "path": "roi/left",
+          "value": 0.67
+        },
+        {
+          "layer": "130",
+          "path": "roi/top",
+          "value": 0
+        },
+        {
+          "layer": "131",
+          "path": "corner/top_left/x",
+          "value": 0
+        },
+        {
+          "layer": "131",
+          "path": "corner/top_left/y",
+          "value": 0
+        },
+        {
+          "layer": "131",
+          "path": "corner/bottom_left/x",
+          "value": 0
+        },
+        {
+          "layer": "131",
+          "path": "corner/bottom_left/y",
+          "value": 0
+        },
+        {
+          "layer": "131",
+          "path": "position/x",
+          "value": 960.0
+        },
+        {
+          "layer": "131",
+          "path": "position/y",
+          "value": 540.0
+        },
+        {
+          "layer": "131",
+          "path": "scale/x",
+          "value": 32.8125
+        },
+        {
+          "layer": "131",
+          "path": "scale/y",
+          "value": 100.0
+        },
+        {
+          "layer": "131",
+          "path": "roi/left",
+          "value": 0.335
+        },
+        {
+          "layer": "131",
+          "path": "roi/right",
+          "value": 0.665
+        },
+        {
+          "layer": "132",
+          "path": "corner/top_right/x",
+          "value": 0
+        },
+        {
+          "layer": "132",
+          "path": "corner/top_right/y",
+          "value": 0
+        },
+        {
+          "layer": "132",
+          "path": "corner/bottom_right/x",
+          "value": 0
+        },
+        {
+          "layer": "132",
+          "path": "corner/bottom_right/y",
+          "value": 0
+        },
+        {
+          "layer": "132",
+          "path": "position/x",
+          "value": 315.0
+        },
+        {
+          "layer": "132",
+          "path": "position/y",
+          "value": 540.0
+        },
+        {
+          "layer": "132",
+          "path": "scale/x",
+          "value": 32.8125
+        },
+        {
+          "layer": "132",
+          "path": "scale/y",
+          "value": 100.0
+        },
+        {
+          "layer": "132",
+          "path": "roi/right",
+          "value": 0.33
+        },
+        {
+          "layer": "150",
+          "path": "param/rows",
+          "value": 24
+        },
+        {
+          "layer": "150",
+          "path": "param/density",
+          "value": 0.5
+        },
+        {
+          "layer": "150",
+          "path": "param/speed",
+          "value": 0.6
+        },
+        {
+          "layer": "150",
+          "path": "param/flicker",
+          "value": 0
+        },
+        {
+          "layer": "160",
+          "path": "opacity",
+          "value": 0
+        },
+        {
+          "layer": "160",
+          "path": "param/amplitude",
+          "value": 0.8
+        },
+        {
+          "layer": "160",
+          "path": "param/depth",
+          "value": 0.7
+        },
+        {
+          "layer": "160",
+          "path": "param/thickness",
+          "value": 1.6
+        },
+        {
+          "layer": "160",
+          "path": "param/hit",
+          "value": 0
+        },
+        {
+          "layer": "170",
+          "path": "param/speed",
+          "value": 1.2
+        },
+        {
+          "layer": "170",
+          "path": "param/cell",
+          "value": 2
+        },
+        {
+          "layer": "170",
+          "path": "param/axes",
+          "value": 1
+        },
+        {
+          "layer": "170",
+          "path": "param/fov",
+          "value": 70
+        },
+        {
+          "layer": "170",
+          "path": "param/hit",
+          "value": 0
+        },
+        {
+          "layer": "0",
+          "path": "interaction/1/enable",
+          "value": true
+        },
+        {
+          "layer": "0",
+          "path": "interaction/3/enable",
+          "value": false
+        },
+        {
+          "layer": "0",
+          "path": "interaction/4/enable",
+          "value": false
+        },
+        {
+          "layer": "0",
+          "path": "interaction/7/enable",
+          "value": false
+        },
+        {
+          "layer": "0",
+          "path": "interaction/12/enable",
+          "value": false
+        }
+      ],
+      "animations": [],
+      "interactions": [],
+      "geometry": {},
+      "categories": {}
+    },
+    {
+      "id": "18",
+      "name": "16 · Rupture",
+      "fade": 0,
+      "values": [
+        {
+          "layer": "110",
+          "path": "text/content",
+          "value": "RUPTURE\nERR 0x00FF",
+          "time": 0.35
+        },
+        {
+          "layer": "114",
+          "path": "opacity",
+          "value": 1
+        },
+        {
+          "layer": "114",
+          "path": "param/startColor/r",
+          "value": 0.55
+        },
+        {
+          "layer": "114",
+          "path": "param/startColor/g",
+          "value": 0.86
+        },
+        {
+          "layer": "114",
+          "path": "param/endColor/g",
+          "value": 0.18
+        },
+        {
+          "layer": "114",
+          "path": "param/endColor/b",
+          "value": 0.62
+        },
+        {
+          "layer": "120",
+          "path": "opacity",
+          "value": 0
+        },
+        {
+          "layer": "120",
+          "path": "param/count",
+          "value": 1
+        },
+        {
+          "layer": "120",
+          "path": "param/width",
+          "value": 0.004
+        },
+        {
+          "layer": "120",
+          "path": "param/angle",
+          "value": 90
+        },
+        {
+          "layer": "120",
+          "path": "param/hit",
+          "value": 0
+        },
+        {
+          "layer": "120",
+          "path": "param/outline",
+          "value": false
+        },
+        {
+          "layer": "120",
+          "path": "param/grid",
+          "value": false
+        },
+        {
+          "layer": "130",
+          "path": "opacity",
+          "value": 0
+        },
+        {
+          "layer": "131",
+          "path": "opacity",
+          "value": 0
+        },
+        {
+          "layer": "132",
+          "path": "opacity",
+          "value": 0
+        },
+        {
+          "layer": "140",
+          "path": "opacity",
+          "value": 0
+        },
+        {
+          "layer": "145",
+          "path": "opacity",
+          "value": 0
+        },
+        {
+          "layer": "150",
+          "path": "opacity",
+          "value": 1
+        },
+        {
+          "layer": "150",
+          "path": "param/mode",
+          "value": 0
+        },
+        {
+          "layer": "150",
+          "path": "param/rows",
+          "value": 40
+        },
+        {
+          "layer": "150",
+          "path": "param/density",
+          "value": 0.4
+        },
+        {
+          "layer": "150",
+          "path": "param/speed",
+          "value": 1.4
+        },
+        {
+          "layer": "150",
+          "path": "param/glitch",
+          "value": 0.6
+        },
+        {
+          "layer": "150",
+          "path": "fx/VHS_Glitch/enable",
+          "value": true
+        },
+        {
+          "layer": "160",
+          "path": "opacity",
+          "value": 0
+        },
+        {
+          "layer": "170",
+          "path": "opacity",
+          "value": 1
+        },
+        {
+          "layer": "170",
+          "path": "param/speed",
+          "value": 1.6
+        },
+        {
+          "layer": "170",
+          "path": "param/warp",
+          "value": 1.6
+        },
+        {
+          "layer": "170",
+          "path": "param/axes",
+          "value": 0
+        },
+        {
+          "layer": "170",
+          "path": "param/hit",
+          "value": 0
+        },
+        {
+          "layer": "0",
+          "path": "interaction/1/enable",
+          "value": false
+        },
+        {
+          "layer": "0",
+          "path": "interaction/3/enable",
+          "value": true
+        },
+        {
+          "layer": "0",
+          "path": "interaction/5/enable",
+          "value": true
+        },
+        {
+          "layer": "0",
+          "path": "interaction/10/enable",
+          "value": true
+        },
+        {
+          "layer": "0",
+          "path": "interaction/12/enable",
+          "value": true
+        }
+      ],
+      "animations": [],
+      "interactions": [],
+      "geometry": {},
+      "categories": {}
+    },
+    {
+      "id": "19",
+      "name": "17 · Finale",
+      "fade": 0,
+      "values": [
+        {
+          "layer": "110",
+          "path": "text/content",
+          "value": "FINALE\nALL CHANNELS",
+          "time": 0.35
+        },
+        {
+          "layer": "114",
+          "path": "param/startColor/r",
+          "value": 1.0
+        },
+        {
+          "layer": "114",
+          "path": "param/startColor/g",
+          "value": 0.58
+        },
+        {
+          "layer": "114",
+          "path": "param/startColor/b",
+          "value": 0.12
+        },
+        {
+          "layer": "114",
+          "path": "param/endColor/g",
+          "value": 1
+        },
+        {
+          "layer": "114",
+          "path": "param/endColor/b",
+          "value": 1
+        },
+        {
+          "layer": "120",
+          "path": "opacity",
+          "value": 1
+        },
+        {
+          "layer": "120",
+          "path": "param/count",
+          "value": 4
+        },
+        {
+          "layer": "120",
+          "path": "param/width",
+          "value": 0.1
+        },
+        {
+          "layer": "120",
+          "path": "param/angle",
+          "value": 0
+        },
+        {
+          "layer": "120",
+          "path": "param/jitter",
+          "value": 0
+        },
+        {
+          "layer": "120",
+          "path": "param/strobe",
+          "value": 10.398
+        },
+        {
+          "layer": "130",
+          "path": "opacity",
+          "value": 1
+        },
+        {
+          "layer": "131",
+          "path": "opacity",
+          "value": 1
+        },
+        {
+          "layer": "132",
+          "path": "opacity",
+          "value": 1
+        },
+        {
+          "layer": "150",
+          "path": "opacity",
+          "value": 0.8
+        },
+        {
+          "layer": "150",
+          "path": "param/rows",
+          "value": 48
+        },
+        {
+          "layer": "150",
+          "path": "param/density",
+          "value": 0.5
+        },
+        {
+          "layer": "150",
+          "path": "param/speed",
+          "value": 1.6
+        },
+        {
+          "layer": "150",
+          "path": "param/flicker",
+          "value": 0
+        },
+        {
+          "layer": "150",
+          "path": "param/glitch",
+          "value": 0
+        },
+        {
+          "layer": "150",
+          "path": "fx/Zoom_Volumetric/enable",
+          "value": true
+        },
+        {
+          "layer": "150",
+          "path": "fx/VHS_Glitch/enable",
+          "value": false
+        },
+        {
+          "layer": "150",
+          "path": "fx/VHS_Glitch/param/analogDistort",
+          "value": 0
+        },
+        {
+          "layer": "160",
+          "path": "opacity",
+          "value": 0.6
+        },
+        {
+          "layer": "160",
+          "path": "param/thickness",
+          "value": 1.6
+        },
+        {
+          "layer": "170",
+          "path": "param/speed",
+          "value": 2.0
+        },
+        {
+          "layer": "170",
+          "path": "param/cell",
+          "value": 2
+        },
+        {
+          "layer": "170",
+          "path": "param/glow",
+          "value": 0.5
+        },
+        {
+          "layer": "170",
+          "path": "param/warp",
+          "value": 0
+        },
+        {
+          "layer": "170",
+          "path": "param/fov",
+          "value": 70
+        },
+        {
+          "layer": "170",
+          "path": "param/hit",
+          "value": 0
+        },
+        {
+          "layer": "170",
+          "path": "fx/Trails/enable",
+          "value": true
+        },
+        {
+          "layer": "0",
+          "path": "interaction/1/enable",
+          "value": true
+        },
+        {
+          "layer": "0",
+          "path": "interaction/3/enable",
+          "value": false
+        },
+        {
+          "layer": "0",
+          "path": "interaction/4/enable",
+          "value": true
+        },
+        {
+          "layer": "0",
+          "path": "interaction/10/enable",
+          "value": false
+        }
+      ],
+      "animations": [],
+      "interactions": [],
+      "geometry": {},
+      "categories": {}
+    },
+    {
+      "id": "20",
+      "name": "18 · Last signal",
+      "fade": 0.9,
+      "values": [
+        {
+          "layer": "110",
+          "path": "text/content",
+          "value": "NyxMap\nEND OF SIGNAL",
+          "time": 0.35
+        },
+        {
+          "layer": "114",
+          "path": "opacity",
+          "value": 0
+        },
+        {
+          "layer": "114",
+          "path": "param/startColor/g",
+          "value": 1
+        },
+        {
+          "layer": "114",
+          "path": "param/startColor/b",
+          "value": 1
+        },
+        {
+          "layer": "120",
+          "path": "opacity",
+          "value": 1,
+          "time": 0.0
+        },
+        {
+          "layer": "120",
+          "path": "param/count",
+          "value": 1
+        },
+        {
+          "layer": "120",
+          "path": "param/width",
+          "value": 0.003
+        },
+        {
+          "layer": "120",
+          "path": "param/angle",
+          "value": 90
+        },
+        {
+          "layer": "120",
+          "path": "param/spread",
+          "value": 1
+        },
+        {
+          "layer": "120",
+          "path": "param/jitter",
+          "value": 0
+        },
+        {
+          "layer": "120",
+          "path": "param/hit",
+          "value": 0
+        },
+        {
+          "layer": "120",
+          "path": "param/strobe",
+          "value": 0
+        },
+        {
+          "layer": "120",
+          "path": "param/grid",
+          "value": false
+        },
+        {
+          "layer": "120",
+          "path": "param/tint/r",
+          "value": 1
+        },
+        {
+          "layer": "120",
+          "path": "param/tint/g",
+          "value": 1
+        },
+        {
+          "layer": "120",
+          "path": "param/tint/b",
+          "value": 1
+        },
+        {
+          "layer": "130",
+          "path": "opacity",
+          "value": 0
+        },
+        {
+          "layer": "130",
+          "path": "rotation",
+          "value": 0
+        },
+        {
+          "layer": "131",
+          "path": "opacity",
+          "value": 0
+        },
+        {
+          "layer": "131",
+          "path": "rotation",
+          "value": 0
+        },
+        {
+          "layer": "132",
+          "path": "opacity",
+          "value": 0
+        },
+        {
+          "layer": "132",
+          "path": "rotation",
+          "value": 0
+        },
+        {
+          "layer": "150",
+          "path": "opacity",
+          "value": 0
+        },
+        {
+          "layer": "150",
+          "path": "param/rows",
+          "value": 24
+        },
+        {
+          "layer": "150",
+          "path": "param/speed",
+          "value": 0.6
+        },
+        {
+          "layer": "150",
+          "path": "fx/Zoom_Volumetric/enable",
+          "value": false
+        },
+        {
+          "layer": "160",
+          "path": "opacity",
+          "value": 0
+        },
+        {
+          "layer": "160",
+          "path": "param/amplitude",
+          "value": 0.8
+        },
+        {
+          "layer": "160",
+          "path": "param/thickness",
+          "value": 1.6
+        },
+        {
+          "layer": "170",
+          "path": "opacity",
+          "value": 0
+        },
+        {
+          "layer": "170",
+          "path": "param/speed",
+          "value": 0.5
+        },
+        {
+          "layer": "170",
+          "path": "param/cell",
+          "value": 2
+        },
+        {
+          "layer": "170",
+          "path": "param/glow",
+          "value": 0.5
+        },
+        {
+          "layer": "170",
+          "path": "param/fov",
+          "value": 70
+        },
+        {
+          "layer": "170",
+          "path": "param/hit",
+          "value": 0
+        },
+        {
+          "layer": "170",
+          "path": "fx/Trails/enable",
+          "value": false
+        },
+        {
+          "layer": "0",
+          "path": "interaction/1/enable",
+          "value": false
+        },
+        {
+          "layer": "0",
+          "path": "interaction/2/enable",
+          "value": false
+        },
+        {
+          "layer": "0",
+          "path": "interaction/4/enable",
+          "value": false
+        },
+        {
+          "layer": "0",
+          "path": "interaction/5/enable",
+          "value": false
+        },
+        {
+          "layer": "0",
+          "path": "interaction/12/enable",
+          "value": false
+        }
+      ],
+      "animations": [],
+      "interactions": [],
+      "geometry": {},
+      "categories": {}
+    },
+    {
+      "id": "21",
+      "name": "19 · Black",
+      "fade": 1.4,
+      "values": [
+        {
+          "layer": "110",
+          "path": "text/content",
+          "value": "",
+          "time": 0.35
+        },
+        {
+          "layer": "111",
+          "path": "opacity",
+          "value": 0
+        },
+        {
+          "layer": "120",
+          "path": "opacity",
+          "value": 0
+        },
+        {
+          "layer": "120",
+          "path": "param/width",
+          "value": 0.004
+        }
+      ],
+      "animations": [],
+      "interactions": [],
+      "geometry": {},
+      "categories": {}
+    }
+  ],
+  "snapshots": [
+    {
+      "id": "1",
+      "name": "00 · Ready",
+      "fade": 0,
+      "layers": [
+        {
+          "id": "110",
+          "name": "Readout",
+          "enable": true,
+          "locked": false,
+          "viewports": {},
+          "source": {
+            "type": "text"
+          },
+          "fx": [],
+          "params": {
+            "opacity": 1.0,
+            "blend_mode": "normal",
+            "text/content": "NyxMap\n— stand by",
+            "text/font": "Menlo",
+            "text/size": 22,
+            "text/align": "left",
+            "text/v_align": "top",
+            "text/width": 1100,
+            "text/height": 260,
+            "position/x": 614.0,
+            "position/y": 186.0,
+            "scale/x": 57.291666666666664,
+            "scale/y": 24.074074074074073,
+            "text/color/r": 1,
+            "text/color/g": 1,
+            "text/color/b": 1,
+            "text/color/a": 1.0
+          },
+          "included": true,
+          "timing": {
+            "text/content": 0.35
+          }
+        },
+        {
+          "id": "111",
+          "name": "Timecode",
+          "enable": true,
+          "locked": false,
+          "viewports": {},
+          "source": {
+            "type": "text",
+            "timecode": {
+              "source": "internal",
+              "internal": "free_run",
+              "rate": "25",
+              "offset": 0
+            }
+          },
+          "fx": [],
+          "params": {
+            "opacity": 0.4,
+            "blend_mode": "normal",
+            "text/content": "",
+            "text/font": "Menlo",
+            "text/size": 40,
+            "text/align": "right",
+            "text/v_align": "bottom",
+            "text/width": 520,
+            "text/height": 70,
+            "position/x": 1596.0,
+            "position/y": 989.0,
+            "scale/x": 27.083333333333332,
+            "scale/y": 6.481481481481482,
+            "text/color/r": 1,
+            "text/color/g": 1,
+            "text/color/b": 1,
+            "text/color/a": 1.0,
+            "tc/position": 0,
+            "tc/play": true
+          },
+          "included": true
+        },
+        {
+          "id": "114",
+          "name": "Colour Wash",
+          "enable": true,
+          "locked": false,
+          "viewports": {},
+          "source": {
+            "type": "isf",
+            "path": "shaders/Linear Gradient.fs",
+            "relative_path": "shaders/Linear Gradient.fs",
+            "width": 1920,
+            "height": 1080
+          },
+          "fx": [],
+          "params": {
+            "opacity": 0,
+            "blend_mode": "multiply",
+            "param/offset": 0.5,
+            "param/frequency": 1,
+            "param/curve": 0,
+            "param/vertical": true,
+            "param/startColor/r": 1,
+            "param/startColor/g": 1,
+            "param/startColor/b": 1,
+            "param/startColor/a": 1.0,
+            "param/endColor/r": 1,
+            "param/endColor/g": 1,
+            "param/endColor/b": 1,
+            "param/endColor/a": 1.0
+          },
+          "included": true
+        },
+        {
+          "id": "120",
+          "name": "Light Bars",
+          "enable": true,
+          "locked": false,
+          "viewports": {},
+          "source": {
+            "type": "isf",
+            "path": "shaders/Light Bars.fs",
+            "relative_path": "shaders/Light Bars.fs",
+            "width": 1920,
+            "height": 1080
+          },
+          "fx": [],
+          "params": {
+            "opacity": 0,
+            "blend_mode": "add",
+            "param/count": 1,
+            "param/width": 0.004,
+            "param/phase": 0,
+            "param/speed": 0,
+            "param/angle": 90,
+            "param/spread": 1,
+            "param/jitter": 0,
+            "param/hit": 0,
+            "param/strobe": 0,
+            "param/mirror": false,
+            "param/outline": false,
+            "param/grid": false,
+            "param/tint/r": 1,
+            "param/tint/g": 1,
+            "param/tint/b": 1,
+            "param/tint/a": 1.0
+          },
+          "included": true
+        },
+        {
+          "id": "130",
+          "name": "Window C · data",
+          "enable": true,
+          "locked": false,
+          "viewports": {},
+          "source": {
+            "type": "layer",
+            "layer": "150",
+            "tap": "prefx"
+          },
+          "fx": [
+            {
+              "path": "shaders/Soft Crop.fs",
+              "relative_path": "shaders/Soft Crop.fs"
+            }
+          ],
+          "params": {
+            "opacity": 0,
+            "blend_mode": "normal",
+            "rotation": 0,
+            "corner/top_left/x": 0,
+            "corner/top_left/y": 0,
+            "corner/top_right/x": 0,
+            "corner/top_right/y": 0,
+            "corner/bottom_right/x": 0,
+            "corner/bottom_right/y": 0,
+            "corner/bottom_left/x": 0,
+            "corner/bottom_left/y": 0
+          },
+          "included": true
+        },
+        {
+          "id": "131",
+          "name": "Window B · lattice",
+          "enable": true,
+          "locked": false,
+          "viewports": {},
+          "source": {
+            "type": "layer",
+            "layer": "170",
+            "tap": "postfx"
+          },
+          "fx": [
+            {
+              "path": "shaders/Soft Crop.fs",
+              "relative_path": "shaders/Soft Crop.fs"
+            }
+          ],
+          "params": {
+            "opacity": 0,
+            "blend_mode": "normal",
+            "rotation": 0,
+            "corner/top_left/x": 0,
+            "corner/top_left/y": 0,
+            "corner/top_right/x": 0,
+            "corner/top_right/y": 0,
+            "corner/bottom_right/x": 0,
+            "corner/bottom_right/y": 0,
+            "corner/bottom_left/x": 0,
+            "corner/bottom_left/y": 0
+          },
+          "included": true
+        },
+        {
+          "id": "132",
+          "name": "Window A · lattice",
+          "enable": true,
+          "locked": false,
+          "viewports": {},
+          "source": {
+            "type": "layer",
+            "layer": "170",
+            "tap": "postfx"
+          },
+          "fx": [
+            {
+              "path": "shaders/Soft Crop.fs",
+              "relative_path": "shaders/Soft Crop.fs"
+            }
+          ],
+          "params": {
+            "opacity": 0,
+            "blend_mode": "normal",
+            "rotation": 0,
+            "corner/top_left/x": 0,
+            "corner/top_left/y": 0,
+            "corner/top_right/x": 0,
+            "corner/top_right/y": 0,
+            "corner/bottom_right/x": 0,
+            "corner/bottom_right/y": 0,
+            "corner/bottom_left/x": 0,
+            "corner/bottom_left/y": 0
+          },
+          "included": true
+        },
+        {
+          "id": "140",
+          "name": "Inside the title · waves",
+          "enable": true,
+          "locked": false,
+          "viewports": {},
+          "source": {
+            "type": "layer",
+            "layer": "160",
+            "tap": "postfx"
+          },
+          "fx": [],
+          "params": {
+            "opacity": 0,
+            "blend_mode": "screen"
+          },
+          "matte": {
+            "layer": "145",
+            "channel": "alpha",
+            "invert": false,
+            "space": "composition"
+          },
+          "included": true
+        },
+        {
+          "id": "145",
+          "name": "Title",
+          "enable": true,
+          "locked": false,
+          "viewports": {},
+          "source": {
+            "type": "text"
+          },
+          "fx": [],
+          "params": {
+            "opacity": 0,
+            "blend_mode": "normal",
+            "text/content": "NyxMap",
+            "text/font": "Helvetica Neue",
+            "text/size": 440,
+            "text/align": "center",
+            "text/v_align": "middle",
+            "text/width": 1920,
+            "text/height": 1080,
+            "position/x": 960.0,
+            "position/y": 540.0,
+            "scale/x": 100.0,
+            "scale/y": 100.0,
+            "text/color/r": 0.03,
+            "text/color/g": 0.07,
+            "text/color/b": 0.42,
+            "text/color/a": 1.0,
+            "text/bold": true,
+            "text/letter_spacing": -12,
+            "corner/top_left/x": 0,
+            "corner/top_left/y": 0,
+            "corner/top_right/x": 0,
+            "corner/top_right/y": 0,
+            "corner/bottom_right/x": 0,
+            "corner/bottom_right/y": 0,
+            "corner/bottom_left/x": 0,
+            "corner/bottom_left/y": 0
+          },
+          "included": true
+        },
+        {
+          "id": "150",
+          "name": "Data Stream",
+          "enable": true,
+          "locked": false,
+          "viewports": {},
+          "source": {
+            "type": "isf",
+            "path": "shaders/Data Stream.fs",
+            "relative_path": "shaders/Data Stream.fs",
+            "width": 1920,
+            "height": 1080,
+            "audio_sources": {
+              "fft": "program"
+            }
+          },
+          "fx": [
+            {
+              "path": "shaders/Zoom Volumetric.fs",
+              "relative_path": "shaders/Zoom Volumetric.fs"
+            },
+            {
+              "path": "shaders/VHS Glitch.fs",
+              "relative_path": "shaders/VHS Glitch.fs"
+            }
+          ],
+          "params": {
+            "opacity": 0,
+            "blend_mode": "difference",
+            "param/mode": 0,
+            "param/rows": 24,
+            "param/density": 0.5,
+            "param/speed": 0.6,
+            "param/flicker": 0,
+            "param/band": 1,
+            "param/center": 0.5,
+            "param/hit": 0,
+            "param/glitch": 0,
+            "param/invert": false,
+            "param/progress": 0,
+            "param/tint/r": 1,
+            "param/tint/g": 1,
+            "param/tint/b": 1,
+            "param/tint/a": 1.0,
+            "fx/Zoom_Volumetric/enable": false,
+            "fx/Zoom_Volumetric/param/DEPTH": 2.2,
+            "fx/Zoom_Volumetric/param/GAIN": 0.28,
+            "fx/Zoom_Volumetric/param/LAYERS": 12,
+            "fx/Zoom_Volumetric/param/TILE": true,
+            "fx/VHS_Glitch/enable": false,
+            "fx/VHS_Glitch/param/analogDistort": 0,
+            "fx/VHS_Glitch/param/bleedAmount": 0.6,
+            "fx/VHS_Glitch/param/grainLevel": 0.4
+          },
+          "included": true
+        },
+        {
+          "id": "160",
+          "name": "Waveform Lines",
+          "enable": true,
+          "locked": false,
+          "viewports": {},
+          "source": {
+            "type": "isf",
+            "path": "shaders/Waveform Lines.fs",
+            "relative_path": "shaders/Waveform Lines.fs",
+            "width": 1920,
+            "height": 1080,
+            "audio_sources": {
+              "wave": "program"
+            }
+          },
+          "fx": [],
+          "params": {
+            "opacity": 0,
+            "blend_mode": "add",
+            "param/lines": 40,
+            "param/amplitude": 0.8,
+            "param/depth": 0.7,
+            "param/tilt": 0.35,
+            "param/thickness": 1.6,
+            "param/hit": 0,
+            "param/tint/r": 1,
+            "param/tint/g": 1,
+            "param/tint/b": 1,
+            "param/tint/a": 1.0
+          },
+          "included": true
+        },
+        {
+          "id": "170",
+          "name": "Beam Lattice",
+          "enable": true,
+          "locked": false,
+          "viewports": {},
+          "source": {
+            "type": "isf",
+            "path": "shaders/Beam Lattice.fs",
+            "relative_path": "shaders/Beam Lattice.fs",
+            "width": 1920,
+            "height": 1080
+          },
+          "fx": [
+            {
+              "path": "shaders/Kaleidoscope.fs",
+              "relative_path": "shaders/Kaleidoscope.fs"
+            },
+            {
+              "path": "shaders/Trails.fs",
+              "relative_path": "shaders/Trails.fs"
+            }
+          ],
+          "params": {
+            "opacity": 0,
+            "blend_mode": "normal",
+            "param/speed": 0.5,
+            "param/cell": 2,
+            "param/thickness": 0.012,
+            "param/glow": 0.5,
+            "param/fog": 0.45,
+            "param/warp": 0,
+            "param/axes": 0,
+            "param/fov": 70,
+            "param/hit": 0,
+            "param/invert": false,
+            "param/tint/r": 1,
+            "param/tint/g": 1,
+            "param/tint/b": 1,
+            "param/tint/a": 1.0,
+            "rotation": 0,
+            "scale/x": 100,
+            "scale/y": 100,
+            "fx/Kaleidoscope/enable": false,
+            "fx/Kaleidoscope/param/segments": 6,
+            "fx/Kaleidoscope/param/spin": 0.05,
+            "fx/Trails/enable": false,
+            "fx/Trails/param/decay": 0.86,
+            "fx/Trails/param/mode": 0
+          },
+          "included": true
+        },
+        {
+          "id": "190",
+          "name": "Soundtrack",
+          "enable": true,
+          "locked": false,
+          "viewports": {},
+          "source": {
+            "type": "audio",
+            "path": "audio/abydos_music-science-of-trip-hop-30-sec-edit-202809.mp3",
+            "relative_path": "audio/abydos_music-science-of-trip-hop-30-sec-edit-202809.mp3"
+          },
+          "play": false,
+          "fx": [],
+          "params": {
+            "restart": true,
+            "play": true,
+            "play_mode": "oneshot",
+            "volume": 1
+          },
+          "included": true
+        }
+      ],
+      "composition": {
+        "included": true,
+        "opacity": 1,
+        "volume": 1
+      },
+      "interactions": [
+        {
+          "id": "1",
+          "included": true,
+          "enabled": false
+        },
+        {
+          "id": "2",
+          "included": true,
+          "enabled": false
+        },
+        {
+          "id": "3",
+          "included": true,
+          "enabled": false
+        },
+        {
+          "id": "4",
+          "included": true,
+          "enabled": false
+        },
+        {
+          "id": "5",
+          "included": true,
+          "enabled": false
+        },
+        {
+          "id": "6",
+          "included": true,
+          "enabled": false
+        },
+        {
+          "id": "7",
+          "included": true,
+          "enabled": false
+        },
+        {
+          "id": "8",
+          "included": false
+        },
+        {
+          "id": "9",
+          "included": false
+        },
+        {
+          "id": "10",
+          "included": true,
+          "enabled": false
+        },
+        {
+          "id": "12",
+          "included": true,
+          "enabled": false
+        },
+        {
+          "id": "11",
+          "included": false
+        }
+      ]
+    }
+  ],
+  "snapshot_tree": [
+    "1"
+  ],
+  "sequences": [
+    {
+      "id": "1",
+      "name": "Demo · on the soundtrack's timecode",
+      "loop": false,
+      "steps": [
+        {
+          "text": "00 · Ready",
+          "snapshot": "1",
+          "description": "GO: the soundtrack starts"
+        },
+        {
+          "text": "01 · Signal",
+          "preset": "3",
+          "description": "one line, the kick lights it",
+          "at": 0.04
+        },
+        {
+          "text": "02 · Split",
+          "preset": "4",
+          "description": "three lines open",
+          "at": 1.579
+        },
+        {
+          "text": "03 · Data",
+          "preset": "5",
+          "description": "a band of data",
+          "at": 3.118
+        },
+        {
+          "text": "the band rises to the bass",
+          "timeline": "1",
+          "action": "play",
+          "at": 4.656
+        },
+        {
+          "text": "04 · Structure",
+          "preset": "6",
+          "description": "the bass: the lattice",
+          "at": 6.195,
+          "continue": "follow"
+        },
+        {
+          "timeline": "2",
+          "action": "play"
+        },
+        {
+          "text": "05 · Windows",
+          "preset": "7",
+          "description": "three windows, reframed each beat",
+          "at": 7.734,
+          "continue": "follow"
+        },
+        {
+          "timeline": "3",
+          "action": "play"
+        },
+        {
+          "text": "06 · Density",
+          "preset": "8",
+          "description": "the data turns to a matrix",
+          "at": 9.273
+        },
+        {
+          "text": "the hit: white",
+          "preset": "1",
+          "at": 11.551,
+          "continue": "follow",
+          "post_wait": 0.1
+        },
+        {
+          "text": "07 · Impact",
+          "preset": "9",
+          "description": "inverted lattice",
+          "continue": "follow"
+        },
+        {
+          "timeline": "3",
+          "action": "stop"
+        },
+        {
+          "text": "08 · Wave",
+          "preset": "10",
+          "description": "the waveform, cyan",
+          "at": 12.35
+        },
+        {
+          "text": "09 · Title",
+          "preset": "11",
+          "description": "the title: waves inside, amber lattice around",
+          "at": 13.889,
+          "continue": "follow"
+        },
+        {
+          "timeline": "6",
+          "action": "play"
+        },
+        {
+          "text": "10 · Tunnel",
+          "preset": "12",
+          "description": "the tunnel turns, blades on each beat",
+          "at": 15.428,
+          "continue": "follow"
+        },
+        {
+          "timeline": "4",
+          "action": "play",
+          "continue": "follow"
+        },
+        {
+          "timeline": "8",
+          "action": "play"
+        },
+        {
+          "text": "11 · Saturation",
+          "preset": "13",
+          "description": "red strobe, zoom, glitch bursts",
+          "at": 16.967,
+          "continue": "follow"
+        },
+        {
+          "timeline": "4",
+          "action": "stop",
+          "continue": "follow"
+        },
+        {
+          "timeline": "8",
+          "action": "stop"
+        },
+        {
+          "text": "12 · Fall",
+          "preset": "14",
+          "description": "slowing down",
+          "at": 18.506
+        },
+        {
+          "text": "13 · Void",
+          "preset": "15",
+          "description": "silence: one line",
+          "at": 19.275
+        },
+        {
+          "text": "14 · Corridor",
+          "preset": "16",
+          "description": "a corridor of mapped planes, its vanishing point swinging",
+          "at": 20.044,
+          "continue": "follow"
+        },
+        {
+          "timeline": "7",
+          "action": "play"
+        },
+        {
+          "text": "15 · Grid",
+          "preset": "17",
+          "description": "the grid, three fixed windows",
+          "at": 21.583,
+          "continue": "follow"
+        },
+        {
+          "timeline": "7",
+          "action": "stop"
+        },
+        {
+          "text": "a hole in the music",
+          "preset": "2",
+          "at": 22.43
+        },
+        {
+          "text": "16 · Rupture",
+          "preset": "18",
+          "description": "tearing",
+          "at": 23.122
+        },
+        {
+          "text": "17 · Finale",
+          "preset": "19",
+          "description": "everything, the windows twice as fast",
+          "at": 24.661,
+          "continue": "follow"
+        },
+        {
+          "timeline": "3",
+          "action": "play",
+          "continue": "follow"
+        },
+        {
+          "timeline": "3",
+          "action": "speed",
+          "speed": 2
+        },
+        {
+          "text": "the layers leave one by one",
+          "timeline": "5",
+          "action": "play",
+          "at": 25.53,
+          "continue": "follow"
+        },
+        {
+          "timeline": "3",
+          "action": "stop"
+        },
+        {
+          "timeline": "5",
+          "action": "stop",
+          "at": 27.708,
+          "continue": "follow"
+        },
+        {
+          "text": "the last hit: white",
+          "preset": "1",
+          "continue": "follow",
+          "post_wait": 0.1
+        },
+        {
+          "text": "18 · Last signal",
+          "preset": "20",
+          "description": "end of signal"
+        },
+        {
+          "text": "19 · Black",
+          "preset": "21",
+          "description": "black",
+          "at": 28.45,
+          "continue": "follow"
+        },
+        {
+          "timeline": "2",
+          "action": "stop"
+        }
+      ],
+      "timecode": {
+        "layer": "190",
+        "param": "playhead"
+      }
+    }
+  ],
+  "current_sequence": 0,
+  "startup_sequence": 0,
+  "startup_step": 0,
+  "startup_go": false,
+  "ui": {
+    "selected_layer": 0
+  }
+}

@@ -65,7 +65,10 @@ public:
         AnimLoop loop = AnimLoop::Loop; // LoopMode
         int repeat = 0;                 // LoopMode
         double speed = 1;               // Speed
-        double preWait = 0, postWait = 0; // seconds
+        double preWait = 0, postWait = 0; // seconds (beats when its sequence counts in beats: Sequence::beats)
+        // A step started by a GO waits for the next multiple of this many beats of the show's clock (Engine::beatClock;
+        // 1: the beat, 4: the bar), then its pre-wait. 0: no grid. A stopped clock never gets there: no grid then
+        double quantize = 0;
         StepContinue next = StepContinue::Wait;
         quint64 runtimeId = 0; // stable across edits; assigned by Sequencer, not serialized
         quint64 preset = 0;
@@ -99,6 +102,9 @@ public:
     struct Sequence {
         QString name;
         bool loop = false; // GO on the last step goes to the first
+        // Its steps' pre- and post-waits are in beats, at the tempo of the clock when the step is started (a tempo changed
+        // during a wait is taken at the next step)
+        bool beats = false;
         bool tracking = true; // a jump plays first what the steps before it leave
         std::vector<Step> steps;
         quint64 clockLayer = 0; // the clock its steps' timecodes are on: a value of the show (a layer's id, 0: the
